@@ -126,7 +126,6 @@ function ActiveDot() {
 
 export function AuditProgress({ steps, backendLogs = [] }) {
   const [logLines, setLogLines]   = useState([]);
-  const [activeIdx, setActiveIdx] = useState(-1);
   const bodyRef = useRef(null);
   const prevStepsRef = useRef([]);
   const logCounter = useRef(0);
@@ -156,7 +155,6 @@ export function AuditProgress({ steps, backendLogs = [] }) {
       /* Step just became active (pending → not pending / in progress) */
       if (!old || old.status === "pending") {
         if (step.status !== "pending") {
-          setActiveIdx(i);
           addLog(step.step, `Starting ${meta.label.toLowerCase()} phase...`, "log-msg--hl");
 
           /* Stream fake detail logs with delays */
@@ -228,6 +226,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
   const fillPct    = STEP_ORDER.length > 0 ? (doneCount / STEP_ORDER.length) * 100 : 0;
   const isComplete = doneCount === STEP_ORDER.length;
   const hasError   = steps.some(s => s.status === "error");
+  const activeIdx = steps.findIndex((step) => step.status === "running");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
@@ -306,7 +305,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
           return (
             <div className="progress-row" key={step.step}>
               <p>
-                <span style={{
+              <span style={{
                   color: step.status === "done"  ? "var(--ok)"  :
                          step.status === "error" ? "var(--high)" :
                          activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--accent)" :
@@ -331,7 +330,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
                 {statusLabel(
                   step.status === "done" ? "done" :
                   step.status === "error" ? "error" :
-                  activeIdx === STEP_ORDER.indexOf(step.step) ? "active" : "pending"
+                  step.status === "running" ? "active" : "pending"
                 )}
               </span>
             </div>

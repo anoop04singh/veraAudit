@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiJson } from "../utils/api.js";
+import { shortenHash, toSuiVisionObjectUrl, toSuiVisionTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function VerifyPage() {
   const { blobId } = useParams();
@@ -24,7 +25,11 @@ export function VerifyPage() {
     <section className="section">
       <div className="s-inner">
         <h1 className="s-h2">Blob Verification</h1>
-        <p className="mono">{blobId}</p>
+        <p className="mono">
+          <a className="smart-link" href={toWalrusBlobUrl(blobId)} target="_blank" rel="noreferrer">
+            {blobId}
+          </a>
+        </p>
         {error && <p className="error-text">{error}</p>}
 
         {data && (
@@ -32,10 +37,28 @@ export function VerifyPage() {
             <p className={data.verified ? "ok-text" : "error-text"}>
               {data.verified ? "Verified: Walrus content matches on-chain hash." : "Verification failed."}
             </p>
-            <p className="mono">Contract: {data.contract_id ?? "-"}</p>
-            <p className="mono">On-chain tx: {data.tx_digest ?? "-"}</p>
-            <p className="mono">Blob hash: {data.blob_hash ?? "-"}</p>
-            <p className="mono">On-chain hash: {data.onchain_hash ?? "-"}</p>
+            <p className="mono">
+              Contract:{" "}
+              {data.contract_id ? (
+                <a className="smart-link" href={toSuiVisionObjectUrl(data.contract_id)} target="_blank" rel="noreferrer">
+                  {shortenHash(data.contract_id)}
+                </a>
+              ) : (
+                "-"
+              )}
+            </p>
+            <p className="mono">
+              On-chain tx:{" "}
+              {data.tx_digest ? (
+                <a className="smart-link" href={toSuiVisionTxUrl(data.tx_digest)} target="_blank" rel="noreferrer">
+                  {shortenHash(data.tx_digest)}
+                </a>
+              ) : (
+                "-"
+              )}
+            </p>
+            <p className="mono">Blob hash: {data.blob_hash ? shortenHash(data.blob_hash, 14, 10) : "-"}</p>
+            <p className="mono">On-chain hash: {data.onchain_hash ? shortenHash(data.onchain_hash, 14, 10) : "-"}</p>
           </div>
         )}
       </div>

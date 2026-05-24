@@ -1,5 +1,6 @@
 export function AuditReport({ report }) {
   if (!report) return null;
+  const findings = report.findings ?? [];
 
   return (
     <section className="report">
@@ -9,9 +10,10 @@ export function AuditReport({ report }) {
       </div>
       <p className="report-summary">{report.summary}</p>
 
-      <h4>Findings</h4>
+      <h4>Findings ({findings.length})</h4>
       <div className="list">
-        {(report.findings ?? []).map((finding) => (
+        {!findings.length && <p className="muted">No explicit findings were returned for this run.</p>}
+        {findings.map((finding) => (
           <article className="list-item" key={finding.id}>
             <div className="list-head">
               <strong>{finding.id}</strong>

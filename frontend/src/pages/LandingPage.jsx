@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { apiJson } from "../utils/api.js";
 
 /* ─── ASCII ENGINE ──────────────────────────────────────── */
 
@@ -85,10 +87,23 @@ const techStack = [
   { name: "Tatum RPC",   role: "Chain Data Layer",        desc: "Module introspection, event history, and transaction context." },
 ];
 
+const references = [
+  { label: "Tatum Sui RPC docs", href: "https://docs.tatum.io/reference/rpc-sui" },
+  { label: "Walrus docs", href: "https://docs.wal.app/" },
+  { label: "SuiVision", href: "https://suivision.xyz/" },
+  { label: "SuiScan", href: "https://suiscan.xyz/" },
+];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 28 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.48, ease: [0.16, 1, 0.3, 1] } },
+};
+
 /* ─── LANDING PAGE ──────────────────────────────────────── */
 
 export function LandingPage() {
   const [tick, setTick] = useState(0);
+  const [metrics, setMetrics] = useState(null);
 
   /* ASCII tick */
   useEffect(() => {
@@ -118,38 +133,67 @@ export function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadMetrics() {
+      try {
+        const data = await apiJson("/api/metrics");
+        if (isMounted) setMetrics(data);
+      } catch {
+        if (isMounted) setMetrics(null);
+      }
+    }
+
+    loadMetrics();
+    const timer = setInterval(loadMetrics, 20000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   return (
     <>
       {/* ── HERO ───────────────────────────────────────────── */}
       <section className="landing-hero section">
         <div className="s-inner hero-grid">
           <div className="hero-copy">
-            <p className="eyebrow reveal">Tatum · Walrus · Sui · Gemini</p>
-            <h1 className="hero-h1 reveal reveal-delay-1">
+            <motion.p initial="hidden" animate="show" variants={fadeUp} className="eyebrow">
+              Tatum · Walrus · Sui · Gemini
+            </motion.p>
+            <motion.h1 initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.06 }} className="hero-h1">
               <span className="h1-line">Proof,</span>
               <span className="h1-line h1-line--push">not claims.</span>
-            </h1>
-            <p className="hero-lead reveal reveal-delay-2">
+            </motion.h1>
+            <motion.p initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.12 }} className="hero-lead">
               VeraAudit closes Sui's audit trust gap by combining Gemini AI reasoning,
               Walrus immutable blobs, and Sui on-chain anchors into one publicly
               verifiable evidence trail. No trust assumptions. No PDF games.
-            </p>
-            <div className="tech-tag-row reveal reveal-delay-3">
+            </motion.p>
+            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.18 }} className="tech-tag-row">
               {["Gemini 2.0 Flash", "Walrus Blob", "Sui Testnet", "Tatum RPC"].map(t => (
                 <span key={t} className="tech-tag">{t}</span>
               ))}
-            </div>
-            <div className="actions-row reveal reveal-delay-4">
+            </motion.div>
+            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.24 }} className="actions-row">
               <Link className="btn btn--primary" to="/audit">Open Audit Workspace</Link>
               <Link className="btn" to="/audit">Verify a Blob →</Link>
-            </div>
+            </motion.div>
+            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.28 }} className="reference-row">
+              {references.map((item) => (
+                <a key={item.href} className="smart-link" href={item.href} target="_blank" rel="noreferrer">
+                  {item.label}
+                </a>
+              ))}
+            </motion.div>
           </div>
 
-          <div className="hero-ascii-shell reveal reveal-delay-2">
+          <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.14 }} className="hero-ascii-shell">
             <pre className="hero-ascii" aria-hidden="true">
               {buildAsciiFrame(tick, 60, 18, "sparse")}
             </pre>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -173,24 +217,26 @@ export function LandingPage() {
         <div className="section">
           <div className="stat-band reveal">
             <div className="stat-cell">
-              <div className="stat-num ok-text"><Counter target={1200} suffix="+" /></div>
+              <div className="stat-num ok-text"><Counter target={metrics?.total_audits ?? 0} /></div>
               <div className="stat-label">Audits run</div>
               <div className="stat-sub">Sui testnet packages</div>
             </div>
             <div className="stat-cell">
-              <div className="stat-num"><Counter target={847} /></div>
+              <div className="stat-num"><Counter target={metrics?.unique_contracts ?? 0} /></div>
               <div className="stat-label">Unique contracts</div>
               <div className="stat-sub">Distinct package IDs</div>
             </div>
             <div className="stat-cell">
-              <div className="stat-num" style={{ color: "var(--high)" }}><Counter target={214} /></div>
+              <div className="stat-num" style={{ color: "var(--high)" }}>
+                <Counter target={metrics?.severity_distribution?.critical ?? 0} />
+              </div>
               <div className="stat-label">Critical findings</div>
               <div className="stat-sub">Across all audits</div>
             </div>
             <div className="stat-cell">
-              <div className="stat-num"><Counter target={100} suffix="%" /></div>
-              <div className="stat-label">Verifiable on-chain</div>
-              <div className="stat-sub">Every report anchored</div>
+              <div className="stat-num"><Counter target={metrics?.severity_distribution?.high ?? 0} /></div>
+              <div className="stat-label">High severity</div>
+              <div className="stat-sub">Active risk count</div>
             </div>
           </div>
         </div>
@@ -210,6 +256,16 @@ export function LandingPage() {
                 Most teams publish an audit PDF and ask users to trust it.
                 There's no way to verify the AI actually examined your exact contract,
                 that the report hasn't been edited, or that it was ever stored permanently.
+                <span className="inline-doc-links">
+                  {" "}See{" "}
+                  <a className="smart-link" href="https://docs.wal.app/" target="_blank" rel="noreferrer">
+                    Walrus storage guarantees
+                  </a>
+                  {" "}and{" "}
+                  <a className="smart-link" href="https://docs.tatum.io/reference/rpc-sui" target="_blank" rel="noreferrer">
+                    Tatum RPC reference
+                  </a>.
+                </span>
               </p>
               <p className="pull-quote" style={{ marginTop: "1.4rem", borderTop: "1px solid #1a1a1a", paddingTop: "1.4rem" }}>
                 VeraAudit removes that assumption by making each audit{" "}

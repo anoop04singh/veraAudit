@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { MetricsBar } from "../components/MetricsBar.jsx";
 import { apiJson } from "../utils/api.js";
+import { shortenHash, toSuiVisionObjectUrl, toSuiVisionTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -21,8 +23,6 @@ export function HomePage() {
 
   useEffect(() => {
     loadMetrics();
-    const id = setInterval(loadMetrics, 15000);
-    return () => clearInterval(id);
   }, []);
 
   /* Reveal observer */
@@ -46,7 +46,12 @@ export function HomePage() {
       <div className="s-inner">
 
         {/* ── HERO ──────────────────────────────────────────── */}
-        <div className="audit-hero-grid reveal in-view">
+        <motion.div
+          className="audit-hero-grid reveal in-view"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        >
           <div className="audit-copy">
             <p className="eyebrow">Audit Workspace</p>
             <h1 className="hero-h1">
@@ -91,7 +96,7 @@ export function HomePage() {
               ))}
             </div>
           </aside>
-        </div>
+        </motion.div>
 
         {/* ── METRICS ───────────────────────────────────────── */}
         <MetricsBar metrics={metrics} />
@@ -109,19 +114,67 @@ export function HomePage() {
           )}
           {!!metrics?.recent_audits?.length && (
             <div className="list">
-              {metrics.recent_audits.map(item => (
+              {metrics.recent_audits.map(item => {
+                const blobId = item.blob_id ?? item.walrus_blob_id;
+                const canOpenReport = Boolean(blobId);
+                return (
                 <div
-                  className="list-item"
-                  key={`${item.blob_id}-${item.tx_digest}`}
+                  className="list-item list-item--interactive"
+                  key={`${blobId}-${item.tx_digest}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (!canOpenReport) return;
+                    navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!canOpenReport) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                    }
+                  }}
                 >
                   <div className="list-head">
-                    <p className="mono">{item.contract_id}</p>
+                    <a
+                      className="smart-link mono"
+                      href={toSuiVisionObjectUrl(item.contract_id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {shortenHash(item.contract_id)}
+                    </a>
                     <span className={`sev sev-${item.severity}`}>{item.severity}</span>
                   </div>
-                  <p className="mono">{item.blob_id}</p>
-                  <p className="mono" style={{ color: "#555" }}>{item.audited_at}</p>
+                  <p className="mono">
+                    blob:{" "}
+                    <a
+                      className="smart-link"
+                      href={toWalrusBlobUrl(blobId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {shortenHash(blobId)}
+                    </a>
+                  </p>
+                  <p className="mono">
+                    tx:{" "}
+                    <a
+                      className="smart-link"
+                      href={toSuiVisionTxUrl(item.tx_digest)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {shortenHash(item.tx_digest)}
+                    </a>
+                  </p>
+                  <p className="mono subtle-text">{item.audited_at}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
