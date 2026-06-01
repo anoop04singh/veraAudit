@@ -27,6 +27,18 @@ const STEP_META = {
       "Chain context assembled.",
     ],
   },
+  rag: {
+    label: "RAG",
+    abbrev: "RAG",
+    tagClass: "log-tag--rag",
+    logs: [
+      "Extracting module signatures and object signals...",
+      "Generating targeted Sui/Move retrieval queries...",
+      "Embedding query with Gemini embedding model...",
+      "Ranking vulnerability patterns and official guidance...",
+      "Security context assembled for Gemini.",
+    ],
+  },
   audit: {
     label: "GEMINI",
     abbrev: "AI",
@@ -67,7 +79,7 @@ const STEP_META = {
   },
 };
 
-const STEP_ORDER = ["fetch", "context", "audit", "walrus", "anchor"];
+const STEP_ORDER = ["fetch", "context", "rag", "audit", "walrus", "anchor"];
 const ENABLE_SYNTHETIC_LOGS = false;
 
 /* ─── HELPERS ───────────────────────────────────────────── */
@@ -116,8 +128,8 @@ function ActiveDot() {
     <span style={{
       display: "inline-block",
       width: 8, height: 8, borderRadius: "50%",
-      background: "#e0e0e0",
-      animation: "step-pulse 1.4s ease-in-out infinite",
+      background: "var(--red)",
+      animation: "step-pulse-red 1.4s ease-in-out infinite",
     }} />
   );
 }
@@ -211,6 +223,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
         tag: line.step ?? "sys",
         tagClass: STEP_META[line.step]?.tagClass ?? "log-tag--sys",
         msg: line.message,
+        details: line.details,
         cls: "",
       })),
     ]);
@@ -271,7 +284,12 @@ export function AuditProgress({ steps, backendLogs = [] }) {
             <div className="log-line" key={line.id}>
               <span className="log-time">{line.time}</span>
               <span className={`log-tag ${line.tagClass}`}>[{line.tag.toUpperCase()}]</span>
-              <span className={`log-msg ${line.cls ?? ""}`}>{line.msg}</span>
+              <span className={`log-msg ${line.cls ?? ""}`}>
+                {line.msg}
+                {line.details && (
+                  <pre className="log-details">{line.details}</pre>
+                )}
+              </span>
             </div>
           ))}
 
@@ -308,7 +326,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
               <span style={{
                   color: step.status === "done"  ? "var(--ok)"  :
                          step.status === "error" ? "var(--high)" :
-                         activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--accent)" :
+                         activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--red)" :
                          "var(--muted2)",
                   marginRight: "0.6rem",
                   fontSize: "0.68rem",
@@ -323,7 +341,7 @@ export function AuditProgress({ steps, backendLogs = [] }) {
               <span style={{
                 color: step.status === "done"  ? "var(--ok)"   :
                        step.status === "error" ? "var(--high)"  :
-                       activeIdx === STEP_ORDER.indexOf(step.step) ? "#e0e0e0" :
+                       activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--ink)" :
                        "var(--muted2)",
                 fontSize: "0.65rem", letterSpacing: "0.08em",
               }}>

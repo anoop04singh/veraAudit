@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MetricsBar } from "../components/MetricsBar.jsx";
 import { apiJson } from "../utils/api.js";
-import { shortenHash, toSuiVisionObjectUrl, toSuiVisionTxUrl, toWalrusBlobUrl } from "../utils/links.js";
+import { shortenHash, toSuiScanObjectUrl, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -91,7 +91,7 @@ export function HomePage() {
               <div className="orbital-core">VERIFY</div>
             </div>
             <div className="pipeline-mini">
-              {["FETCH", "CTX", "AI", "BLOB", "SUI"].map(s => (
+              {["FETCH", "CTX", "RAG", "AI", "BLOB", "SUI"].map(s => (
                 <div key={s} className="p-step">{s}</div>
               ))}
             </div>
@@ -138,7 +138,7 @@ export function HomePage() {
                   <div className="list-head">
                     <a
                       className="smart-link mono"
-                      href={toSuiVisionObjectUrl(item.contract_id)}
+                      href={toSuiScanObjectUrl(item.contract_id)}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(event) => event.stopPropagation()}
@@ -163,7 +163,7 @@ export function HomePage() {
                     tx:{" "}
                     <a
                       className="smart-link"
-                      href={toSuiVisionTxUrl(item.tx_digest)}
+                      href={toSuiScanTxUrl(item.tx_digest)}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(event) => event.stopPropagation()}
@@ -185,9 +185,10 @@ export function HomePage() {
           <div className="flow-grid">
             {[
               { n: "1.", title: "Tatum Sui RPC Read",  body: "Module introspection + event/transaction context from Sui testnet." },
-              { n: "2.", title: "Gemini Analysis",      body: "Structured findings with severity and technical reasoning metadata." },
-              { n: "3.", title: "Walrus Write",         body: "Immutable content-addressed audit JSON for independent retrieval." },
-              { n: "4.", title: "Sui Anchor",           body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
+              { n: "2.", title: "RAG Retrieval",        body: "Gemini embeddings retrieve Sui/Move security context before analysis." },
+              { n: "3.", title: "Gemini Analysis",      body: "Structured findings with severity and technical reasoning metadata." },
+              { n: "4.", title: "Walrus Write",         body: "Immutable content-addressed audit JSON for independent retrieval." },
+              { n: "5.", title: "Sui Anchor",           body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
             ].map(f => (
               <div className="flow-item" key={f.n}>
                 <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>{f.n}</p>

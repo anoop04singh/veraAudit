@@ -40,13 +40,64 @@ function normalizeAuditOutput(auditResult) {
     summary: auditResult.summary,
     severity: auditResult.severity,
     findings_count: Array.isArray(auditResult.findings) ? auditResult.findings.length : 0,
+    finding_titles: (auditResult.findings ?? []).slice(0, 5).map((finding) => finding.title),
     confidence: auditResult.confidence,
   };
+}
+
+function getExposedFunctionNames(moduleData, maxFunctions) {
+  const functions = [];
+  for (const [moduleName, module] of Object.entries(moduleData ?? {})) {
+    const exposed = module?.exposedFunctions ?? {};
+    for (const functionName of Object.keys(exposed)) {
+      functions.push({ moduleName, functionName });
+      if (functions.length >= maxFunctions) return functions;
+    }
+  }
+  return functions;
+}
+
+function compactTransactionBlock(tx) {
+  return {
+    digest: tx?.digest,
+    timestampMs: tx?.timestampMs,
+    checkpoint: tx?.checkpoint,
+    transaction: tx?.transaction
+      ? {
+          sender: tx.transaction?.data?.sender,
+          gasBudget: tx.transaction?.data?.gasData?.budget,
+          commands: tx.transaction?.data?.transaction?.transactions?.length,
+        }
+      : undefined,
+    effects: tx?.effects
+      ? {
+          status: tx.effects?.status,
+          gasUsed: tx.effects?.gasUsed,
+          created: tx.effects?.created?.length ?? 0,
+          mutated: tx.effects?.mutated?.length ?? 0,
+          deleted: tx.effects?.deleted?.length ?? 0,
+        }
+      : undefined,
+    events: (tx?.events ?? []).slice(0, 20).map((event) => ({
+      id: event?.id,
+      type: event?.type,
+      packageId: event?.packageId,
+      transactionModule: event?.transactionModule,
+      sender: event?.sender,
+      timestampMs: event?.timestampMs ?? tx?.timestampMs,
+      parsedJson: event?.parsedJson,
+    })),
+  };
+}
+
+function isMissingReferencedEventsError(error) {
+  return /Could not find the referenced transaction events/i.test(error?.message ?? "");
 }
 
 export function createAuditPipeline({ config, services }) {
   const {
     suiRpc,
+    retrieveAuditContext,
     runGeminiAudit,
     storeAuditBlob,
     anchorAuditOnSui,
@@ -107,60 +158,167 @@ export function createAuditPipeline({ config, services }) {
     const moduleNames = Object.keys(moduleData ?? {});
     markStepDone("fetch", "Module introspection complete.", {
       module_count: moduleNames.length,
+      module_names: moduleNames,
+      exposed_function_count: getExposedFunctionNames(moduleData, 10_000).length,
       payload_size: formatBytes(jsonSizeBytes(moduleData)),
     });
 
-    markStepStart("context", "Fetching recent package events...");
-    log("context", "Querying module-scoped events via Tatum.");
-    const eventBatches = await mapWithConcurrency(
-      moduleNames,
+    markStepStart("context", "Fetching recent package transaction history...");
+    const functionTargets = getExposedFunctionNames(moduleData, config.maxContextFunctionQueries);
+    log("context", "Querying function-scoped transaction blocks via Tatum.", {
+      function_targets: functionTargets,
+    });
+
+    const txBatches = await mapWithConcurrency(
+      functionTargets,
       config.contextModuleQueryConcurrency,
-      async (moduleName) =>
+      async ({ moduleName, functionName }) =>
         suiRpc(
-          "suix_queryEvents",
+          "suix_queryTransactionBlocks",
           [
-            { MoveModule: { package: normalizedContractId, module: moduleName } },
+            {
+              filter: {
+                MoveFunction: {
+                  package: normalizedContractId,
+                  module: moduleName,
+                  function: functionName,
+                },
+              },
+              options: {
+                showInput: true,
+                showEffects: true,
+                showEvents: true,
+                showObjectChanges: false,
+                showBalanceChanges: false,
+              },
+            },
             null,
-            25,
+            config.contextTransactionsPerFunction,
             true,
           ],
           {
-            onRetryLog: (retryMessage) => log("context", `${moduleName}: ${retryMessage}`),
+            onRetryLog: (retryMessage) => log("context", `${moduleName}::${functionName}: ${retryMessage}`),
           },
         ),
     );
 
-    const recentEvents = eventBatches
-      .flatMap((batch) => batch?.data ?? [])
+    const txByDigest = new Map();
+    for (const batch of txBatches) {
+      for (const tx of batch?.data ?? []) {
+        if (tx?.digest && !txByDigest.has(tx.digest)) {
+          txByDigest.set(tx.digest, compactTransactionBlock(tx));
+        }
+      }
+    }
+
+    let eventFallbackUsed = false;
+    let eventFallbackWarning = "";
+    let fallbackEvents = [];
+
+    if (txByDigest.size === 0 && moduleNames.length > 0) {
+      eventFallbackUsed = true;
+      log("context", "No function transaction blocks returned. Falling back to guarded module event query.");
+      const fallbackBatches = await mapWithConcurrency(
+        moduleNames,
+        config.contextModuleQueryConcurrency,
+        async (moduleName) => {
+          try {
+            return await suiRpc(
+              "suix_queryEvents",
+              [
+                { MoveModule: { package: normalizedContractId, module: moduleName } },
+                null,
+                25,
+                true,
+              ],
+              {
+                onRetryLog: (retryMessage) => log("context", `${moduleName}: ${retryMessage}`),
+              },
+            );
+          } catch (error) {
+            if (isMissingReferencedEventsError(error)) {
+              eventFallbackWarning = error.message;
+              log("context", "Tatum event index referenced a missing transaction event; continuing with transaction context.", {
+                module: moduleName,
+                reason: error.message,
+              });
+              return { data: [] };
+            }
+            throw error;
+          }
+        },
+      );
+      fallbackEvents = fallbackBatches.flatMap((batch) => batch?.data ?? []);
+    }
+
+    const recentTransactions = Array.from(txByDigest.values())
+      .sort((a, b) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
+      .slice(0, config.maxContextTransactions);
+
+    const embeddedEvents = recentTransactions.flatMap((tx) => tx.events ?? []);
+    const recentEvents = [...embeddedEvents, ...fallbackEvents]
       .sort((a, b) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
       .slice(0, config.maxContextEvents);
 
     markStepDone("context", "Chain context assembled.", {
       queried_modules: moduleNames.length,
+      queried_functions: functionTargets.length,
+      transaction_count: recentTransactions.length,
       event_count: recentEvents.length,
-      payload_size: formatBytes(jsonSizeBytes(recentEvents)),
+      fallback_event_query_used: eventFallbackUsed,
+      fallback_warning: eventFallbackWarning || undefined,
+      sample_transactions: recentTransactions.slice(0, 5).map((tx) => tx.digest),
+      payload_size: formatBytes(jsonSizeBytes({ recentTransactions, recentEvents })),
+    });
+
+    markStepStart("rag", "Retrieving Sui/Move security context...");
+    log("rag", "Generating targeted retrieval queries from module ABI and Tatum chain context.");
+    const ragContext = await retrieveAuditContext({
+      contractId: normalizedContractId,
+      moduleData,
+      recentEvents,
+      onRetryLog: (retryMessage) => log("rag", retryMessage),
+    });
+    markStepDone("rag", "RAG context assembled.", {
+      chunks: ragContext.chunks?.length ?? 0,
+      categories: ragContext.categories ?? [],
+      embedding_used: ragContext.embedding_used ?? false,
+      top_sources: (ragContext.chunks ?? []).slice(0, 3).map((chunk) => chunk.title),
+      warning: ragContext.warning || undefined,
     });
 
     markStepStart("audit", `Running Gemini audit (${config.geminiModel})...`);
-    log("audit", "Submitting module data and chain context to Gemini.");
+    log("audit", "Submitting module data, Tatum chain context, and retrieved Sui/Move guidance to Gemini.");
     const auditResult = await runGeminiAudit({
       contractId: normalizedContractId,
       moduleData,
       recentEvents,
+      recentTransactions,
+      ragContext,
       onRetryLog: (retryMessage) => log("audit", retryMessage),
     });
     markStepDone("audit", "AI analysis complete.", normalizeAuditOutput(auditResult));
 
     const auditedAtMs = nowMs();
     const auditBlob = {
-      version: "1.1",
+      version: "1.2",
       network: config.appNetworkLabel,
       contract_id: normalizedContractId,
       audited_at: new Date(auditedAtMs).toISOString(),
       audited_at_ms: auditedAtMs,
       model: config.geminiModel,
+      embedding_model: config.geminiEmbeddingModel,
       module_snapshot: moduleData,
+      transaction_snapshot: recentTransactions,
       event_snapshot: recentEvents,
+      rag_context: {
+        enabled: ragContext.enabled,
+        embedding_used: ragContext.embedding_used,
+        queries: ragContext.queries,
+        categories: ragContext.categories,
+        chunks: ragContext.chunks,
+        warning: ragContext.warning,
+      },
       ...auditResult,
     };
 

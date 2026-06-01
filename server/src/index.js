@@ -6,6 +6,7 @@ import { config } from "./config.js";
 import { queryAuditEvents, suiRpc } from "./tatum.js";
 import { fetchWalrusBlob, storeAuditBlob } from "./walrus.js";
 import { runGeminiAudit } from "./gemini.js";
+import { retrieveAuditContext } from "./rag.js";
 import { anchorAuditOnSui, severityToInt } from "./anchor.js";
 import { normalizeAuditEvent, severityLabel } from "./events.js";
 import { createAuditPipeline } from "./auditPipeline.js";
@@ -46,6 +47,7 @@ const runAuditPipeline = createAuditPipeline({
   config,
   services: {
     suiRpc,
+    retrieveAuditContext,
     runGeminiAudit,
     storeAuditBlob,
     anchorAuditOnSui,
@@ -67,6 +69,9 @@ app.get("/api/health", (_, res) => {
       registryConfigSet: !!(config.registryPackageId && config.registryObjectId),
       retryMaxAttempts: config.retryMaxAttempts,
       contextModuleQueryConcurrency: config.contextModuleQueryConcurrency,
+      ragEnabled: config.ragEnabled,
+      ragUseEmbeddings: config.ragUseEmbeddings,
+      geminiEmbeddingModel: config.geminiEmbeddingModel,
     },
   });
 });

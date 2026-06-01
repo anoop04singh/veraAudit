@@ -3,41 +3,100 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { apiJson } from "../utils/api.js";
 
-/* ─── ASCII ENGINE ──────────────────────────────────────── */
+/* ─── CANVAS ASCII ENGINE ───────────────────────────────────
+   Adapted from anoop-studio / pattern-ascii-terminal.md
+   Uses requestAnimationFrame + ResizeObserver (no rAF polling)
+─────────────────────────────────────────────────────────── */
+function AsciiHeroCanvas() {
+  const canvasRef = useRef(null);
+  const animRef   = useRef(null);
+  const tickRef   = useRef(0);
 
-const CHARS_SPARSE = [".", " ", " ", " ", ":", "-"];
-const CHARS_DENSE  = [".", ":", "-", "=", "+", "*", "#"];
-const KEYWORDS = ["TATUM", "WALRUS", "SUI", "GEMINI", "AUDIT", "PROOF", "VERA", "ANCHOR"];
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
 
-function buildAsciiFrame(tick, cols = 58, rows = 16, density = "sparse") {
-  const chars = density === "dense" ? CHARS_DENSE : CHARS_SPARSE;
-  const grid = Array.from({ length: rows }, (_, y) =>
-    Array.from({ length: cols }, (_, x) => {
-      const wave = Math.sin((x * 0.22 + tick * 0.08) + y * 0.44) * 0.5 +
-                   Math.sin((x * 0.11 - tick * 0.05) * 1.3 + y * 0.28) * 0.5;
-      const idx = Math.abs(Math.floor(wave * (chars.length - 1))) % chars.length;
-      return chars[idx];
-    })
-  );
-
-  KEYWORDS.forEach((word, i) => {
-    const row = Math.floor(((i * 3.1 + tick * 0.4) % rows + rows) % rows);
-    const col = Math.floor(((i * 7.3 + tick * 0.7) % (cols - word.length - 1) + (cols - word.length - 1)) % (cols - word.length - 1));
-    for (let c = 0; c < word.length; c++) {
-      if (row >= 0 && row < rows && col + c >= 0 && col + c < cols) {
-        grid[row][col + c] = word[c];
-      }
+    // ── Resize to container ──
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width  = rect.width  || 520;
+      canvas.height = rect.height || 300;
     }
-  });
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas.parentElement);
 
-  return grid.map(line => line.join("")).join("\n");
+    // ── Config ──
+    const CELL     = 11;
+    const BASE_CH  = [" ", " ", " ", " ", ".", ".", "\u00B7", ":", "-", ","];
+    const KEYWORDS = ["AUDIT", "PROOF", "VERA", "TATUM", "ANCHOR", ":WALRUS---", "SUI", "GEMINI"];
+
+    // ── Frame renderer ──
+    function draw() {
+      tickRef.current += 0.4;
+      const tick = tickRef.current;
+      const W    = canvas.width;
+      const H    = canvas.height;
+      const cols = Math.floor(W / CELL);
+      const rows = Math.floor(H / CELL);
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.font         = `${CELL}px 'JetBrains Mono', monospace`;
+      ctx.textBaseline = "top";
+
+      // Background dot-wave field
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const wave =
+            Math.sin((c * 0.22 + tick * 0.07) + r * 0.44) * 0.5 +
+            Math.sin((c * 0.11 - tick * 0.04) * 1.3 + r * 0.28) * 0.5;
+          const norm = (wave + 1) / 2;
+          const idx  = Math.floor(norm * (BASE_CH.length - 1));
+          const ch   = BASE_CH[Math.max(0, Math.min(idx, BASE_CH.length - 1))];
+          if (ch !== " ") {
+            const alpha = 0.10 + norm * 0.20;
+            ctx.fillStyle = `rgba(138, 127, 118, ${alpha.toFixed(2)})`;
+            ctx.fillText(ch, c * CELL, r * CELL);
+          }
+        }
+      }
+
+      // Floating keyword labels
+      KEYWORDS.forEach((word, i) => {
+        const spd = 0.055 + i * 0.008;
+        const maxCol = Math.max(1, cols - word.length - 2);
+        const row = Math.floor(((i * 3.7 + tick * spd)       % rows   + rows  ) % rows  );
+        const col = Math.floor(((i * 7.1 + tick * spd * 1.3) % maxCol + maxCol) % maxCol);
+        // keyword ghost
+        ctx.fillStyle = "rgba(58, 51, 48, 0.38)";
+        ctx.fillText(word, col * CELL, row * CELL);
+      });
+
+      animRef.current = requestAnimationFrame(draw);
+    }
+
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(animRef.current);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ display: "block", width: "100%", height: "100%" }}
+      aria-hidden="true"
+    />
+  );
 }
 
-/* ─── COUNTER COMPONENT ─────────────────────────────────── */
-
+/* ─── COUNTER ───────────────────────────────────────────── */
 function Counter({ target, duration = 1800, suffix = "" }) {
   const [val, setVal] = useState(0);
-  const ref = useRef(null);
+  const ref     = useRef(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -48,7 +107,7 @@ function Counter({ target, duration = 1800, suffix = "" }) {
         started.current = true;
         const start = performance.now();
         const step = (now) => {
-          const t = Math.min((now - start) / duration, 1);
+          const t    = Math.min((now - start) / duration, 1);
           const ease = 1 - Math.pow(1 - t, 3);
           setVal(Math.round(ease * target));
           if (t < 1) requestAnimationFrame(step);
@@ -63,14 +122,13 @@ function Counter({ target, duration = 1800, suffix = "" }) {
   return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
 }
 
-/* ─── DATA ──────────────────────────────────────────────── */
-
+/* ─── STATIC DATA ───────────────────────────────────────── */
 const narrativeFlow = [
-  { tag: "Trust Gap",      text: "Audit claims are easy to publish, hard to verify. PDFs can be edited, selectively disclosed, or detached from deployed code." },
-  { tag: "Proof Surface",  text: "VeraAudit converts every security claim into an independently checkable artifact trail — from AI reasoning to on-chain anchor." },
-  { tag: "Walrus Layer",   text: "Audit payloads are immutable and content-addressed. Same bytes, same ID. Any change creates a different blob ID entirely." },
-  { tag: "Sui Anchor",     text: "Each blob reference is timestamped on-chain with auditor identity and epoch evidence, creating a permanent proof record." },
-  { tag: "Tatum Context",  text: "Tatum Sui RPC feeds module introspection, history traces, and verifiable audit execution — ground truth from the chain itself." },
+  { tag: "Trust Gap",     text: "Audit claims are easy to publish, hard to verify. PDFs can be edited, selectively disclosed, or detached from deployed code." },
+  { tag: "Proof Surface", text: "VeraAudit converts every security claim into an independently checkable artifact trail — from AI reasoning to on-chain anchor." },
+  { tag: "Walrus Layer",  text: "Audit payloads are immutable and content-addressed. Same bytes, same ID. Any change creates a different blob ID entirely." },
+  { tag: "Sui Anchor",    text: "Each blob reference is timestamped on-chain with auditor identity and epoch evidence, creating a permanent proof record." },
+  { tag: "Tatum Context", text: "Tatum Sui RPC feeds module introspection, history traces, and verifiable audit execution — ground truth from the chain itself." },
 ];
 
 const endUsers = [
@@ -81,107 +139,107 @@ const endUsers = [
 ];
 
 const techStack = [
-  { name: "Gemini 2.0",  role: "AI Audit Engine",        desc: "Structured reasoning and severity classification for Move smart contracts." },
-  { name: "Walrus",      role: "Immutable Storage",       desc: "Content-addressed blob store — any edit produces a new ID." },
-  { name: "Sui Testnet", role: "On-chain Anchor",         desc: "Blob ID + hash anchored with auditor address and epoch." },
-  { name: "Tatum RPC",   role: "Chain Data Layer",        desc: "Module introspection, event history, and transaction context." },
+  { name: "Gemini 2.0",  role: "AI Audit Engine",   desc: "Structured reasoning and severity classification for Move smart contracts." },
+  { name: "Walrus",      role: "Immutable Storage",  desc: "Content-addressed blob store — any edit produces a new ID." },
+  { name: "Sui Testnet", role: "On-chain Anchor",    desc: "Blob ID + hash anchored with auditor address and epoch." },
+  { name: "Tatum RPC",   role: "Chain Data Layer",   desc: "Module introspection, event history, and transaction context." },
 ];
 
 const references = [
   { label: "Tatum Sui RPC docs", href: "https://docs.tatum.io/reference/rpc-sui" },
-  { label: "Walrus docs", href: "https://docs.wal.app/" },
-  { label: "SuiVision", href: "https://suivision.xyz/" },
-  { label: "SuiScan", href: "https://suiscan.xyz/" },
+  { label: "Walrus docs",        href: "https://docs.wal.app/" },
+  { label: "SuiVision",          href: "https://suivision.xyz/" },
+  { label: "SuiScan",            href: "https://suiscan.xyz/" },
 ];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.48, ease: [0.16, 1, 0.3, 1] } },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.48, ease: [0.16, 1, 0.3, 1] } },
 };
 
 /* ─── LANDING PAGE ──────────────────────────────────────── */
-
 export function LandingPage() {
-  const [tick, setTick] = useState(0);
   const [metrics, setMetrics] = useState(null);
-
-  /* ASCII tick */
-  useEffect(() => {
-    const t = setInterval(() => setTick(v => v + 1), 160);
-    return () => clearInterval(t);
-  }, []);
-
-  /* Mouse spotlight */
-  useEffect(() => {
-    const handler = (e) => {
-      document.documentElement.style.setProperty("--mx", `${e.clientX}px`);
-      document.documentElement.style.setProperty("--my", `${e.clientY}px`);
-    };
-    window.addEventListener("mousemove", handler, { passive: true });
-    return () => window.removeEventListener("mousemove", handler);
-  }, []);
 
   /* Scroll reveals */
   useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("in-view"); });
-    }, { threshold: 0.1, rootMargin: "0px 0px -40px 0px" });
-
-    const query = ".reveal, .reveal-left, .reveal-scale";
-    const nodes = document.querySelectorAll(query);
-    nodes.forEach(n => obs.observe(n));
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("in-view"); }),
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+    );
+    document.querySelectorAll(".reveal, .reveal-left, .reveal-scale").forEach(n => obs.observe(n));
     return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadMetrics() {
-      try {
-        const data = await apiJson("/api/metrics");
-        if (isMounted) setMetrics(data);
-      } catch {
-        if (isMounted) setMetrics(null);
-      }
+    let alive = true;
+    async function load() {
+      try { const d = await apiJson("/api/metrics"); if (alive) setMetrics(d); } catch { /* noop */ }
     }
-
-    loadMetrics();
-    const timer = setInterval(loadMetrics, 20000);
-    return () => {
-      isMounted = false;
-      clearInterval(timer);
-    };
+    load();
+    const t = setInterval(load, 20000);
+    return () => { alive = false; clearInterval(t); };
   }, []);
 
   return (
     <>
-      {/* ── HERO ───────────────────────────────────────────── */}
+      {/* ── HERO ─────────────────────────────────────────── */}
       <section className="landing-hero section">
         <div className="s-inner hero-grid">
+
           <div className="hero-copy">
-            <motion.p initial="hidden" animate="show" variants={fadeUp} className="eyebrow">
+            <motion.p
+              className="eyebrow"
+              initial="hidden" animate="show" variants={fadeUp}
+            >
               Tatum · Walrus · Sui · Gemini
             </motion.p>
-            <motion.h1 initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.06 }} className="hero-h1">
+
+            {/* h1 — ink / ink-dim, never red */}
+            <motion.h1
+              className="hero-h1"
+              initial="hidden" animate="show" variants={fadeUp}
+              transition={{ delay: 0.06 }}
+            >
               <span className="h1-line">Proof,</span>
               <span className="h1-line h1-line--push">not claims.</span>
             </motion.h1>
-            <motion.p initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.12 }} className="hero-lead">
+
+            <motion.p
+              className="hero-lead"
+              initial="hidden" animate="show" variants={fadeUp}
+              transition={{ delay: 0.12 }}
+            >
               VeraAudit closes Sui's audit trust gap by combining Gemini AI reasoning,
               Walrus immutable blobs, and Sui on-chain anchors into one publicly
               verifiable evidence trail. No trust assumptions. No PDF games.
             </motion.p>
-            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.18 }} className="tech-tag-row">
+
+            <motion.div
+              className="tech-tag-row"
+              initial="hidden" animate="show" variants={fadeUp}
+              transition={{ delay: 0.18 }}
+            >
               {["Gemini 2.0 Flash", "Walrus Blob", "Sui Testnet", "Tatum RPC"].map(t => (
                 <span key={t} className="tech-tag">{t}</span>
               ))}
             </motion.div>
-            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.24 }} className="actions-row">
+
+            <motion.div
+              className="actions-row"
+              initial="hidden" animate="show" variants={fadeUp}
+              transition={{ delay: 0.24 }}
+            >
               <Link className="btn btn--primary" to="/audit">Open Audit Workspace</Link>
               <Link className="btn" to="/audit">Verify a Blob →</Link>
             </motion.div>
-            <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.28 }} className="reference-row">
-              {references.map((item) => (
+
+            <motion.div
+              className="reference-row"
+              initial="hidden" animate="show" variants={fadeUp}
+              transition={{ delay: 0.28 }}
+            >
+              {references.map(item => (
                 <a key={item.href} className="smart-link" href={item.href} target="_blank" rel="noreferrer">
                   {item.label}
                 </a>
@@ -189,30 +247,34 @@ export function LandingPage() {
             </motion.div>
           </div>
 
-          <motion.div initial="hidden" animate="show" variants={fadeUp} transition={{ delay: 0.14 }} className="hero-ascii-shell">
-            <pre className="hero-ascii" aria-hidden="true">
-              {buildAsciiFrame(tick, 60, 18, "sparse")}
-            </pre>
+          {/* ── ASCII CANVAS VISUAL ─────────────────────── */}
+          <motion.div
+            className="hero-ascii-shell"
+            initial="hidden" animate="show" variants={fadeUp}
+            transition={{ delay: 0.14 }}
+          >
+            <AsciiHeroCanvas />
+            <div className="hero-ascii-corner" aria-hidden="true">ASCII</div>
           </motion.div>
         </div>
       </section>
 
-      {/* ── MARQUEE ─────────────────────────────────────────── */}
+      {/* ── MARQUEE ──────────────────────────────────────── */}
       <div className="marquee-wrap" aria-hidden="true">
         <div className="marquee-track">
           {[0, 1].map(k => (
             <div key={k} className="marquee-line">
-              {["VERA AUDIT", "GEMINI REASONING", "WALRUS IMMUTABILITY", "SUI ANCHOR",
-                "TATUM RPC", "VERIFIABLE REPORTS", "PUBLIC EVIDENCE",
-                "ZERO TRUST ASSUMPTIONS", "CONTRACT-SPECIFIC PROOF"].map(s => (
-                <span key={s}>{s}</span>
-              ))}
+              {[
+                "VERA AUDIT", "GEMINI REASONING", "WALRUS IMMUTABILITY",
+                "SUI ANCHOR", "TATUM RPC", "VERIFIABLE REPORTS",
+                "PUBLIC EVIDENCE", "ZERO TRUST ASSUMPTIONS", "CONTRACT-SPECIFIC PROOF",
+              ].map(s => <span key={s}>{s}</span>)}
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── STATS BAND ──────────────────────────────────────── */}
+      {/* ── STATS BAND ───────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="stat-band reveal">
@@ -234,7 +296,9 @@ export function LandingPage() {
               <div className="stat-sub">Across all audits</div>
             </div>
             <div className="stat-cell">
-              <div className="stat-num"><Counter target={metrics?.severity_distribution?.high ?? 0} /></div>
+              <div className="stat-num" style={{ color: "var(--med)" }}>
+                <Counter target={metrics?.severity_distribution?.high ?? 0} />
+              </div>
               <div className="stat-label">High severity</div>
               <div className="stat-sub">Active risk count</div>
             </div>
@@ -242,7 +306,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── THE PROBLEM ─────────────────────────────────────── */}
+      {/* ── THE PROBLEM ──────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -250,24 +314,24 @@ export function LandingPage() {
             <article className="panel panel--statement reveal reveal-delay-1">
               <h2 className="s-h2" style={{ marginBottom: "1rem" }}>
                 Smart contract security on Sui<br />
-                <span style={{ color: "#666" }}>still has a trust gap.</span>
+                <span className="s-h2-dim">still has a trust gap.</span>
               </h2>
               <p className="hero-lead">
                 Most teams publish an audit PDF and ask users to trust it.
                 There's no way to verify the AI actually examined your exact contract,
-                that the report hasn't been edited, or that it was ever stored permanently.
+                that the report hasn't been edited, or that it was ever stored permanently.{" "}
                 <span className="inline-doc-links">
-                  {" "}See{" "}
+                  See{" "}
                   <a className="smart-link" href="https://docs.wal.app/" target="_blank" rel="noreferrer">
                     Walrus storage guarantees
-                  </a>
-                  {" "}and{" "}
+                  </a>{" "}
+                  and{" "}
                   <a className="smart-link" href="https://docs.tatum.io/reference/rpc-sui" target="_blank" rel="noreferrer">
                     Tatum RPC reference
                   </a>.
                 </span>
               </p>
-              <p className="pull-quote" style={{ marginTop: "1.4rem", borderTop: "1px solid #1a1a1a", paddingTop: "1.4rem" }}>
+              <p className="pull-quote" style={{ marginTop: "1.4rem", borderTop: "1px solid var(--border)", paddingTop: "1.4rem" }}>
                 VeraAudit removes that assumption by making each audit{" "}
                 <em>cryptographically verifiable</em> from generation to storage to chain anchor.
               </p>
@@ -276,7 +340,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── HOW IT WORKS ────────────────────────────────────── */}
+      {/* ── ARCHITECTURE ─────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -284,9 +348,9 @@ export function LandingPage() {
             <h2 className="s-h2 reveal reveal-delay-1">Three-layer proof chain.</h2>
             <div className="feature-list">
               {[
-                { n: "01", title: "Verifiable AI Reasoning", body: "Not just a verdict. The audit record stores Gemini reasoning artifacts and structured decision context so every conclusion is independently inspectable. No black-box verdicts." },
-                { n: "02", title: "Immutable Walrus Blob", body: "The full JSON payload — findings, severity scores, reasoning — is content-addressed on Walrus. Any byte change produces a different blob ID. Tampering is structurally impossible." },
-                { n: "03", title: "On-chain Sui Anchor", body: "Blob ID + hash are anchored with auditor address and epoch, creating a permanent, timestamped proof. Anyone can verify independently with zero trust in the auditor." },
+                { n: "01", title: "Verifiable AI Reasoning",  body: "Not just a verdict. The audit record stores Gemini reasoning artifacts and structured decision context so every conclusion is independently inspectable. No black-box verdicts." },
+                { n: "02", title: "Immutable Walrus Blob",    body: "The full JSON payload — findings, severity scores, reasoning — is content-addressed on Walrus. Any byte change produces a different blob ID. Tampering is structurally impossible." },
+                { n: "03", title: "On-chain Sui Anchor",      body: "Blob ID + hash are anchored with auditor address and epoch, creating a permanent, timestamped proof. Anyone can verify independently with zero trust in the auditor." },
               ].map((f, i) => (
                 <div className={`feature-row reveal reveal-delay-${i + 1}`} key={f.n}>
                   <div className="feature-num">{f.n}</div>
@@ -301,7 +365,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── TECH STACK ──────────────────────────────────────── */}
+      {/* ── TECH STACK ───────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -319,7 +383,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── HOW A USER USES IT ──────────────────────────────── */}
+      {/* ── USER FLOWS ───────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -330,8 +394,7 @@ export function LandingPage() {
                 <h3>Verify a known package</h3>
                 <p>
                   Paste a package ID → inspect audit timeline → open latest findings →
-                  validate blob JSON on Walrus → confirm anchor on Sui.
-                  Zero trust required.
+                  validate blob JSON on Walrus → confirm anchor on Sui. Zero trust required.
                 </p>
               </article>
               <article className="flow-item reveal reveal-delay-2">
@@ -339,8 +402,8 @@ export function LandingPage() {
                 <h3>Run a new audit</h3>
                 <p>
                   Trigger the full pipeline: module fetch → chain context → Gemini analysis →
-                  Walrus storage → Sui anchoring. Receive a permanent, shareable
-                  verification URL. Takes under a minute.
+                  Walrus storage → Sui anchoring. Receive a permanent, shareable verification URL.
+                  Takes under a minute.
                 </p>
               </article>
             </div>
@@ -348,7 +411,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── WHO USES IT ─────────────────────────────────────── */}
+      {/* ── WHO USES IT ──────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -365,7 +428,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── NARRATIVE STREAM ────────────────────────────────── */}
+      {/* ── NARRATIVE STREAM ─────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">
@@ -382,7 +445,7 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* ── CTA ─────────────────────────────────────────────── */}
+      {/* ── CTA ──────────────────────────────────────────── */}
       <div className="full-section">
         <div className="section">
           <div className="s-inner">

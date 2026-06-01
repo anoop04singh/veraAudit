@@ -5,9 +5,15 @@ import { AuditHistory } from "../components/AuditHistory.jsx";
 import { AuditProgress } from "../components/AuditProgress.jsx";
 import { AuditReport } from "../components/AuditReport.jsx";
 import { apiJson, streamAudit } from "../utils/api.js";
-import { shortenHash, toSuiVisionObjectUrl } from "../utils/links.js";
+import { shortenHash, toSuiScanObjectUrl } from "../utils/links.js";
 
-const stepOrder = ["fetch", "context", "audit", "walrus", "anchor"];
+const stepOrder = ["fetch", "context", "rag", "audit", "walrus", "anchor"];
+
+function formatLogDetails(value, maxChars = 1800) {
+  if (!value || (typeof value === "object" && Object.keys(value).length === 0)) return "";
+  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  return text.length > maxChars ? `${text.slice(0, maxChars)}\n... truncated` : text;
+}
 
 function asInitialSteps() {
   return stepOrder.map((step) => ({ step, message: step, status: "pending" }));
@@ -21,14 +27,22 @@ function severityFromInt(value) {
   return "clean";
 }
 
-function buildStreamAscii(tick, cols = 56, rows = 8) {
-  const chars = [".", "·", ":", "-", " ", " "];
-  return Array.from({ length: rows }, (_, y) =>
-    Array.from({ length: cols }, (_, x) => {
-      const wave = Math.abs(Math.sin((x + tick * 0.25) * 0.18 + y * 0.48));
-      return chars[Math.floor(wave * chars.length) % chars.length];
-    }).join(""),
-  ).join("\n");
+function buildStreamAscii(tick, cols = 56, rows = 12) {
+  const chars = ["▢", "▣", "▤", "▥", "█", "░", "░"];
+  const lines = [];
+  for (let y = 0; y < rows; y++) {
+    let line = "";
+    for (let x = 0; x < cols; x++) {
+      const scannerPos = (tick * 0.5 + y * 0.3) % cols;
+      const dist = Math.abs(x - scannerPos);
+      const wave = Math.sin((x + tick * 0.15) * 0.22 + y * 0.35);
+      const isActive = dist < 3 ? 1 : Math.max(0, (wave * 0.5 + 0.5));
+      const idx = Math.floor(isActive * (chars.length - 1));
+      line += chars[idx];
+    }
+    lines.push(line);
+  }
+  return lines.join("\n");
 }
 
 function HudBar({ streaming, steps, hasError }) {
@@ -48,12 +62,16 @@ function HudBar({ streaming, steps, hasError }) {
 function StreamingVisual({ tick, streaming }) {
   if (!streaming) return null;
   return (
-    <div className="stream-visual">
-      <pre aria-hidden="true" className="stream-visual-ascii">
-        {buildStreamAscii(tick)}
-      </pre>
+    <div className="stream-visual stream-visual--audit">
+      <div className="stream-visual-scanner">
+        <pre aria-hidden="true" className="stream-visual-ascii">
+          {buildStreamAscii(tick)}
+        </pre>
+        <div className="stream-visual-overlay" />
+      </div>
       <div className="stream-visual-right">
-        <p className="stream-visual-title">Pipeline active</p>
+        <p className="stream-visual-title">Contract Analysis</p>
+        <p className="stream-visual-subtitle">Scanning bytecode...</p>
         <div className="stream-visual-dots">
           <span />
           <span />
@@ -128,12 +146,12 @@ export function AuditPage() {
 
         if (event === "step_output") {
           patchStep(payload.step, "done", payload.message);
-          const details = payload.output && Object.keys(payload.output).length ? ` ${JSON.stringify(payload.output)}` : "";
           setBackendLogs((current) => [
             ...current,
             {
               step: payload.step ?? "system",
-              message: `${payload.message ?? "Step output captured."}${details}`.slice(0, 640),
+              message: payload.message ?? "Step output captured.",
+              details: formatLogDetails(payload.output),
             },
           ]);
         }
@@ -144,6 +162,7 @@ export function AuditPage() {
             {
               step: payload.step ?? "system",
               message: payload.message ?? "",
+              details: formatLogDetails(payload.details, 1200),
             },
           ]);
         }
@@ -224,8 +243,34 @@ export function AuditPage() {
   }
 
   return (
-    <section className="section audit-hub">
-      <div className="s-inner">
+    <>
+      <section className="audit-hero section">
+        <div className="s-inner audit-hero-inner">
+          <div className="audit-hero-left">
+            <p className="eyebrow">Audit Workspace</p>
+            <h1 className="audit-hero-title">
+              <span>Run or Verify</span>
+              <span className="accent">Sui Contract</span>
+              <span>Audits</span>
+            </h1>
+            <p className="audit-hero-desc">
+              Paste a Sui package ID to check audit history or trigger a fresh audit. Results are stored on Walrus and anchored on Sui testnet, with chain context fetched via Tatum RPC.
+            </p>
+          </div>
+          <div className="audit-hero-visual">
+            <div className="audit-orbit">
+              <div className="audit-orbit-ring audit-orbit-ring-1" />
+              <div className="audit-orbit-ring audit-orbit-ring-2" />
+              <div className="audit-orbit-center">
+                <span className="audit-orbit-label">VERIFY</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section audit-hub">
+        <div className="s-inner">
         <motion.div
           className="audit-head"
           initial={{ opacity: 0, y: 16 }}
@@ -233,7 +278,7 @@ export function AuditPage() {
           transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
         >
           <p className="eyebrow mono">
-            <a className="smart-link" href={toSuiVisionObjectUrl(contractId)} target="_blank" rel="noreferrer">
+            <a className="smart-link" href={toSuiScanObjectUrl(contractId)} target="_blank" rel="noreferrer">
               {shortenHash(contractId, 14, 10)}
             </a>
           </p>
@@ -297,9 +342,10 @@ export function AuditPage() {
             <div className="flow-grid">
               {[
                 { n: "1", title: "Tatum Sui RPC Read", body: "Module introspection + event/transaction context from Sui testnet." },
-                { n: "2", title: "Gemini Analysis", body: "Structured findings with severity and technical reasoning metadata." },
-                { n: "3", title: "Walrus Write", body: "Immutable content-addressed audit JSON for independent retrieval." },
-                { n: "4", title: "Sui Anchor", body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
+                { n: "2", title: "RAG Retrieval", body: "Sui/Move security context retrieved with Gemini embeddings and targeted vulnerability queries." },
+                { n: "3", title: "Gemini Analysis", body: "Structured findings with severity and technical reasoning metadata." },
+                { n: "4", title: "Walrus Write", body: "Immutable content-addressed audit JSON for independent retrieval." },
+                { n: "5", title: "Sui Anchor", body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
               ].map((item) => (
                 <div className="flow-item" key={item.n}>
                   <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>
@@ -314,5 +360,6 @@ export function AuditPage() {
         )}
       </div>
     </section>
+    </>
   );
 }

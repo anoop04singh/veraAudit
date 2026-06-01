@@ -24,6 +24,7 @@ const auditSchema = {
           location: { type: "string" },
           description: { type: "string" },
           recommendation: { type: "string" },
+          reference: { type: "string" },
         },
         required: ["id", "title", "severity", "location", "description", "recommendation"],
       },
@@ -58,13 +59,41 @@ function sanitizeEventsForPrompt(events) {
   }));
 }
 
-function buildAuditPrompt({ contractId, moduleData, recentEvents }) {
+function sanitizeRagContext(ragContext) {
+  if (!ragContext?.context_text) return "";
+  if (ragContext.context_text.length <= config.maxRagCharsForAudit) return ragContext.context_text;
+  return `${ragContext.context_text.slice(0, config.maxRagCharsForAudit)}\n... [truncated]`;
+}
+
+function sanitizeTransactionsForPrompt(transactions) {
+  return (transactions ?? []).map((tx) => ({
+    digest: tx?.digest,
+    timestampMs: tx?.timestampMs,
+    checkpoint: tx?.checkpoint,
+    sender: tx?.transaction?.sender,
+    gasBudget: tx?.transaction?.gasBudget,
+    commandCount: tx?.transaction?.commands,
+    status: tx?.effects?.status,
+    gasUsed: tx?.effects?.gasUsed,
+    created: tx?.effects?.created,
+    mutated: tx?.effects?.mutated,
+    deleted: tx?.effects?.deleted,
+    eventTypes: (tx?.events ?? []).map((event) => event.type),
+  }));
+}
+
+function buildAuditPrompt({ contractId, moduleData, recentEvents, recentTransactions, ragContext }) {
   const moduleSlice = truncateJsonByChars(moduleData, config.maxModuleCharsForAudit);
+  const txSlice = truncateJsonByChars(sanitizeTransactionsForPrompt(recentTransactions), config.maxTransactionCharsForAudit);
   const eventSlice = truncateJsonByChars(sanitizeEventsForPrompt(recentEvents), config.maxEventCharsForAudit);
+  const ragText = sanitizeRagContext(ragContext);
 
   return [
     "You are an expert Sui Move smart contract security auditor.",
     "Audit the contract package and return strict JSON matching the provided schema.",
+    "Use the retrieved Sui/Move security context to ground findings and recommendations.",
+    "When a finding is informed by retrieved context, include a short reference field using the matching RAG source label or URL.",
+    "Do not invent vulnerabilities that are not supported by the module snapshot, event context, or retrieved context.",
     "Focus on Move/Sui-specific risks:",
     "- object ownership and shared object misuse",
     "- missing authority checks",
@@ -74,15 +103,25 @@ function buildAuditPrompt({ contractId, moduleData, recentEvents }) {
     "",
     `Contract package ID: ${contractId}`,
     "",
+    "Retrieved Sui/Move security context:",
+    ragText || "No retrieved context available.",
+    "",
     "Normalized modules:",
     moduleSlice.json,
+    "",
+    "Recent transaction context from Tatum:",
+    txSlice.json,
     "",
     "Recent event context:",
     eventSlice.json,
     "",
     "Prompt metadata:",
     `module_context_truncated=${moduleSlice.truncated}`,
+    `transaction_context_truncated=${txSlice.truncated}`,
     `event_context_truncated=${eventSlice.truncated}`,
+    `rag_enabled=${ragContext?.enabled ?? false}`,
+    `rag_embedding_used=${ragContext?.embedding_used ?? false}`,
+    `rag_context_count=${ragContext?.chunks?.length ?? 0}`,
   ].join("\n");
 }
 
@@ -103,11 +142,11 @@ export function __setGeminiClientForTests(client) {
   clientOverride = client;
 }
 
-export async function runGeminiAudit({ contractId, moduleData, recentEvents, onRetryLog }) {
+export async function runGeminiAudit({ contractId, moduleData, recentEvents, recentTransactions, ragContext, onRetryLog }) {
   assertHas("GEMINI_API_KEY", config.geminiApiKey);
 
   const client = getGeminiClient();
-  const prompt = buildAuditPrompt({ contractId, moduleData, recentEvents });
+  const prompt = buildAuditPrompt({ contractId, moduleData, recentEvents, recentTransactions, ragContext });
   const response = await withRetries(
     "gemini.generateContent",
     async () =>

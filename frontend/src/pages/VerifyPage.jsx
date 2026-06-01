@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiJson } from "../utils/api.js";
-import { shortenHash, toSuiVisionObjectUrl, toSuiVisionTxUrl, toWalrusBlobUrl } from "../utils/links.js";
+import { shortenHash, toSuiScanObjectUrl, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function VerifyPage() {
   const { blobId } = useParams();
@@ -40,7 +40,7 @@ export function VerifyPage() {
             <p className="mono">
               Contract:{" "}
               {data.contract_id ? (
-                <a className="smart-link" href={toSuiVisionObjectUrl(data.contract_id)} target="_blank" rel="noreferrer">
+                <a className="smart-link" href={toSuiScanObjectUrl(data.contract_id)} target="_blank" rel="noreferrer">
                   {shortenHash(data.contract_id)}
                 </a>
               ) : (
@@ -50,7 +50,7 @@ export function VerifyPage() {
             <p className="mono">
               On-chain tx:{" "}
               {data.tx_digest ? (
-                <a className="smart-link" href={toSuiVisionTxUrl(data.tx_digest)} target="_blank" rel="noreferrer">
+                <a className="smart-link" href={toSuiScanTxUrl(data.tx_digest)} target="_blank" rel="noreferrer">
                   {shortenHash(data.tx_digest)}
                 </a>
               ) : (
