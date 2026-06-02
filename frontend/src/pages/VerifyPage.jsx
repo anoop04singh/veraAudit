@@ -24,7 +24,7 @@ export function VerifyPage() {
   return (
     <section className="section">
       <div className="s-inner">
-        <h1 className="s-h2">Blob Verification</h1>
+        <h1 className="s-h2">Quilt Verification</h1>
         <p className="mono">
           <a className="smart-link" href={toWalrusBlobUrl(blobId)} target="_blank" rel="noreferrer">
             {blobId}
@@ -37,6 +37,7 @@ export function VerifyPage() {
             <p className={data.verified ? "ok-text" : "error-text"}>
               {data.verified ? "Verified: Walrus content matches on-chain hash." : "Verification failed."}
             </p>
+            <p className="mono">Quilt ID: {data.quilt_id ? shortenHash(data.quilt_id, 14, 10) : "-"}</p>
             <p className="mono">
               Contract:{" "}
               {data.contract_id ? (
@@ -57,7 +58,7 @@ export function VerifyPage() {
                 "-"
               )}
             </p>
-            <p className="mono">Blob hash: {data.blob_hash ? shortenHash(data.blob_hash, 14, 10) : "-"}</p>
+            <p className="mono">Payload hash: {data.blob_hash ? shortenHash(data.blob_hash, 14, 10) : "-"}</p>
             <p className="mono">On-chain hash: {data.onchain_hash ? shortenHash(data.onchain_hash, 14, 10) : "-"}</p>
           </div>
         )}

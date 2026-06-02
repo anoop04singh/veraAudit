@@ -9,7 +9,7 @@ const STEP_META = {
     tagClass: "log-tag--fetch",
     logs: [
       "Connecting to Tatum Sui RPC endpoint...",
-      "Resolved package ID on Sui testnet.",
+      "Resolved package ID on Sui mainnet.",
       "Fetching normalized Move modules...",
       "Retrieving module bytecode and ABI...",
       "Module introspection complete.",
@@ -72,7 +72,7 @@ const STEP_META = {
       "Building Sui transaction...",
       "Attaching blob ID + hash to PTB...",
       "Signing with auditor keypair...",
-      "Broadcasting to Sui testnet...",
+      "Broadcasting to Sui mainnet...",
       "Transaction confirmed. Digest recorded.",
       "Audit permanently anchored on-chain.",
     ],

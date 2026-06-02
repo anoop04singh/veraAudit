@@ -66,7 +66,10 @@ app.get("/api/health", (_, res) => {
     config: {
       tatumApiKeySet: !!config.tatumApiKey,
       suiPrivateKeySet: !!config.suiPrivateKey,
-      registryConfigSet: !!(config.registryPackageId && config.registryObjectId),
+      registryConfigSet: !!(config.registryPackageId && config.registryObjectId && config.adminCapObjectId),
+      suiClockObjectId: config.suiClockObjectId,
+      tatumWalrusUploadUrl: config.tatumWalrusUploadUrl,
+      walrusNetwork: config.walrusNetwork,
       retryMaxAttempts: config.retryMaxAttempts,
       contextModuleQueryConcurrency: config.contextModuleQueryConcurrency,
       ragEnabled: config.ragEnabled,
@@ -144,6 +147,7 @@ app.get("/api/verify/:blobId", async (req, res) => {
 
     return res.json({
       verified: hashMatches,
+      quilt_id: blobId,
       blob_id: blobId,
       blob_hash: hash,
       onchain_hash: event.audit_hash,
@@ -230,6 +234,7 @@ app.get("/api/metrics", async (_, res) => {
       .slice(0, 5)
       .map((event) => ({
         contract_id: event.contract_id,
+        quilt_id: event.quilt_id ?? event.walrus_blob_id,
         blob_id: event.walrus_blob_id,
         tx_digest: event.tx_digest,
         severity: severityLabel(event.severity),

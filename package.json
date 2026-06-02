@@ -13,5 +13,9 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.1"
+  },
+  "dependencies": {
+    "@mysten/sui": "^2.17.0",
+    "undici": "^7.27.0"
   }
 }

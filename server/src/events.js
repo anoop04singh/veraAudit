@@ -2,6 +2,7 @@ export function normalizeAuditEvent(event) {
   const parsed = event?.parsedJson ?? {};
   return {
     contract_id: (parsed.contract_id ?? "").toLowerCase(),
+    quilt_id: parsed.walrus_blob_id ?? "",
     walrus_blob_id: parsed.walrus_blob_id ?? "",
     audit_hash: parsed.audit_hash ?? "",
     severity: Number(parsed.severity ?? 0),

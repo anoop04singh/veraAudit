@@ -135,7 +135,7 @@ export function createAuditPipeline({ config, services }) {
       });
     };
 
-    markStepStart("fetch", "Fetching package modules from Sui testnet...");
+    markStepStart("fetch", "Fetching package modules from Sui mainnet...");
     log("fetch", "Requesting normalized modules through Tatum RPC.");
     const moduleData = await withRetries(
       "pipeline.fetchModules",
@@ -324,24 +324,24 @@ export function createAuditPipeline({ config, services }) {
 
     markStepStart("walrus", "Storing audit blob on Walrus...");
     log("walrus", "Uploading immutable audit payload.");
-    const blobId = await storeAuditBlob(auditBlob, {
+    const quiltId = await storeAuditBlob(auditBlob, {
       onRetryLog: (retryMessage) => log("walrus", retryMessage),
     });
     const auditHash = createHash("sha256").update(JSON.stringify(auditBlob)).digest("hex");
     markStepDone("walrus", "Walrus blob stored.", {
-      blob_id: blobId,
+      quilt_id: quiltId,
+      blob_id: quiltId,
       audit_hash: auditHash,
       payload_size: formatBytes(jsonSizeBytes(auditBlob)),
     });
 
-    markStepStart("anchor", "Anchoring blob reference on Sui...");
+    markStepStart("anchor", "Anchoring quilt reference on Sui...");
     log("anchor", "Submitting anchor transaction.");
     const anchor = await anchorAuditOnSui({
       contractId: normalizedContractId,
-      blobId,
+      quiltId,
       auditHash,
       severity: severityToInt(auditResult.severity),
-      timestampMs: auditedAtMs,
     });
     markStepDone("anchor", "On-chain anchor complete.", {
       tx_digest: anchor.digest,
@@ -351,7 +351,8 @@ export function createAuditPipeline({ config, services }) {
     const totalDurationMs = nowMs() - startedAt;
     emit("complete", {
       contract_id: normalizedContractId,
-      blob_id: blobId,
+      quilt_id: quiltId,
+      blob_id: quiltId,
       audit_hash: auditHash,
       tx_digest: anchor.digest,
       anchor_simulated: anchor.simulated ?? false,

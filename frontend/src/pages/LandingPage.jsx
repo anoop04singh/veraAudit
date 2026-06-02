@@ -141,7 +141,7 @@ const endUsers = [
 const techStack = [
   { name: "Gemini 2.0",  role: "AI Audit Engine",   desc: "Structured reasoning and severity classification for Move smart contracts." },
   { name: "Walrus",      role: "Immutable Storage",  desc: "Content-addressed blob store — any edit produces a new ID." },
-  { name: "Sui Testnet", role: "On-chain Anchor",    desc: "Blob ID + hash anchored with auditor address and epoch." },
+  { name: "Sui Mainnet", role: "On-chain Anchor",    desc: "Blob ID + hash anchored with auditor address and epoch." },
   { name: "Tatum RPC",   role: "Chain Data Layer",   desc: "Module introspection, event history, and transaction context." },
 ];
 
@@ -220,7 +220,7 @@ export function LandingPage() {
               initial="hidden" animate="show" variants={fadeUp}
               transition={{ delay: 0.18 }}
             >
-              {["Gemini 2.0 Flash", "Walrus Blob", "Sui Testnet", "Tatum RPC"].map(t => (
+              {["Gemini 2.0 Flash", "Walrus Blob", "Sui Mainnet", "Tatum RPC"].map(t => (
                 <span key={t} className="tech-tag">{t}</span>
               ))}
             </motion.div>
@@ -281,7 +281,7 @@ export function LandingPage() {
             <div className="stat-cell">
               <div className="stat-num ok-text"><Counter target={metrics?.total_audits ?? 0} /></div>
               <div className="stat-label">Audits run</div>
-              <div className="stat-sub">Sui testnet packages</div>
+              <div className="stat-sub">Sui mainnet packages</div>
             </div>
             <div className="stat-cell">
               <div className="stat-num"><Counter target={metrics?.unique_contracts ?? 0} /></div>

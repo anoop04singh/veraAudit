@@ -60,7 +60,7 @@ export function HomePage() {
             </h1>
             <p className="hero-lead">
               Paste a Sui package ID to check audit history or trigger a fresh audit.
-              Results are stored on Walrus and anchored on Sui testnet, with chain
+              Results are stored on Walrus and anchored on Sui mainnet, with chain
               context fetched via Tatum RPC.
             </p>
 
@@ -77,7 +77,7 @@ export function HomePage() {
             </form>
 
             <div className="tech-tag-row">
-              {["Tatum RPC", "Gemini 2.0", "Walrus", "Sui Testnet"].map(t => (
+              {["Tatum RPC", "Gemini 2.0", "Walrus", "Sui Mainnet"].map(t => (
                 <span key={t} className="tech-tag">{t}</span>
               ))}
             </div>
@@ -115,23 +115,23 @@ export function HomePage() {
           {!!metrics?.recent_audits?.length && (
             <div className="list">
               {metrics.recent_audits.map(item => {
-                const blobId = item.blob_id ?? item.walrus_blob_id;
-                const canOpenReport = Boolean(blobId);
+                const quiltId = item.quilt_id ?? item.blob_id ?? item.walrus_blob_id;
+                const canOpenReport = Boolean(quiltId);
                 return (
                 <div
                   className="list-item list-item--interactive"
-                  key={`${blobId}-${item.tx_digest}`}
+                  key={`${quiltId}-${item.tx_digest}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => {
                     if (!canOpenReport) return;
-                    navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                    navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(quiltId)}`);
                   }}
                   onKeyDown={(event) => {
                     if (!canOpenReport) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                      navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(quiltId)}`);
                     }
                   }}
                 >
@@ -148,15 +148,15 @@ export function HomePage() {
                     <span className={`sev sev-${item.severity}`}>{item.severity}</span>
                   </div>
                   <p className="mono">
-                    blob:{" "}
+                    quilt:{" "}
                     <a
                       className="smart-link"
-                      href={toWalrusBlobUrl(blobId)}
+                      href={toWalrusBlobUrl(quiltId)}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {shortenHash(blobId)}
+                      {shortenHash(quiltId)}
                     </a>
                   </p>
                   <p className="mono">
@@ -184,11 +184,11 @@ export function HomePage() {
           <p className="eyebrow" style={{ marginBottom: "0.8rem" }}>Audit Pipeline</p>
           <div className="flow-grid">
             {[
-              { n: "1.", title: "Tatum Sui RPC Read",  body: "Module introspection + event/transaction context from Sui testnet." },
+              { n: "1.", title: "Tatum Sui RPC Read",  body: "Module introspection + event/transaction context from Sui mainnet." },
               { n: "2.", title: "RAG Retrieval",        body: "Gemini embeddings retrieve Sui/Move security context before analysis." },
               { n: "3.", title: "Gemini Analysis",      body: "Structured findings with severity and technical reasoning metadata." },
-              { n: "4.", title: "Walrus Write",         body: "Immutable content-addressed audit JSON for independent retrieval." },
-              { n: "5.", title: "Sui Anchor",           body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
+              { n: "4.", title: "Walrus Write",         body: "Immutable audit JSON stored as a Walrus quilt patch for independent retrieval." },
+              { n: "5.", title: "Sui Anchor",           body: "On-chain proof linking contract, auditor, quilt ID, epoch, and hash." },
             ].map(f => (
               <div className="flow-item" key={f.n}>
                 <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>{f.n}</p>

@@ -83,7 +83,7 @@ export function isRetryableError(error) {
   }
 
   const message = asString(error?.message ?? error);
-  return /(RESOURCE_EXHAUSTED|Too Many Requests|rate limit|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ENOTFOUND|network error)/i.test(
+  return /(RESOURCE_EXHAUSTED|Too Many Requests|rate limit|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ENOTFOUND|network error|Too many failures|quorum)/i.test(
     message,
   );
 }

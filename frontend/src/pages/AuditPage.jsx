@@ -169,10 +169,11 @@ export function AuditPage() {
 
         if (event === "complete") {
           stepOrder.forEach((step) => patchStep(step, "done", "Complete"));
-          const completedBlobId = payload.blob_id;
+          const completedBlobId = payload.quilt_id ?? payload.blob_id;
           setAudits((current) => [
             {
               contract_id: payload.contract_id,
+              quilt_id: completedBlobId,
               walrus_blob_id: completedBlobId,
               blob_id: completedBlobId,
               audit_hash: payload.audit_hash,
@@ -219,11 +220,11 @@ export function AuditPage() {
   }, [contractId]);
 
   useEffect(() => {
-    const fallbackBlobId = latest?.walrus_blob_id ?? latest?.blob_id;
+    const fallbackBlobId = latest?.quilt_id ?? latest?.walrus_blob_id ?? latest?.blob_id;
     const blobIdToLoad = selectedBlobId ?? fallbackBlobId;
     if (!blobIdToLoad) return;
     loadBlob(blobIdToLoad);
-  }, [selectedBlobId, latest?.walrus_blob_id, latest?.blob_id]);
+  }, [selectedBlobId, latest?.quilt_id, latest?.walrus_blob_id, latest?.blob_id]);
 
   useEffect(() => {
     if (!loading && audits.length === 0) {
@@ -254,7 +255,7 @@ export function AuditPage() {
               <span>Audits</span>
             </h1>
             <p className="audit-hero-desc">
-              Paste a Sui package ID to check audit history or trigger a fresh audit. Results are stored on Walrus and anchored on Sui testnet, with chain context fetched via Tatum RPC.
+              Paste a Sui package ID to check audit history or trigger a fresh audit. Results are stored on Walrus and anchored on Sui mainnet, with chain context fetched via Tatum RPC.
             </p>
           </div>
           <div className="audit-hero-visual">
@@ -341,11 +342,11 @@ export function AuditPage() {
             </p>
             <div className="flow-grid">
               {[
-                { n: "1", title: "Tatum Sui RPC Read", body: "Module introspection + event/transaction context from Sui testnet." },
+                { n: "1", title: "Tatum Sui RPC Read", body: "Module introspection + event/transaction context from Sui mainnet." },
                 { n: "2", title: "RAG Retrieval", body: "Sui/Move security context retrieved with Gemini embeddings and targeted vulnerability queries." },
                 { n: "3", title: "Gemini Analysis", body: "Structured findings with severity and technical reasoning metadata." },
-                { n: "4", title: "Walrus Write", body: "Immutable content-addressed audit JSON for independent retrieval." },
-                { n: "5", title: "Sui Anchor", body: "On-chain proof linking contract, auditor, blob ID, epoch, and hash." },
+                { n: "4", title: "Walrus Write", body: "Immutable audit JSON stored as a Walrus quilt patch for independent retrieval." },
+                { n: "5", title: "Sui Anchor", body: "On-chain proof linking contract, auditor, quilt ID, epoch, and hash." },
               ].map((item) => (
                 <div className="flow-item" key={item.n}>
                   <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>

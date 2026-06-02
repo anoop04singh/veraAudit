@@ -5,7 +5,11 @@ module vera_audit::registry {
     use sui::table::{Self, Table};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
-    use std::vector; // Fix: Changed from sui::vec to std::vector
+    use std::vector;
+
+    const E_NOT_ADMIN: u64 = 0;
+    const E_INVALID_SEVERITY: u64 = 1;
+    const E_INVALID_TIMESTAMP: u64 = 2;
 
     public struct AuditRegistry has key {
         id: UID,
@@ -43,7 +47,12 @@ module vera_audit::registry {
         transfer::share_object(registry);
     }
 
-    public entry fun submit_audit(
+    fun assert_admin(registry: &AuditRegistry, ctx: &TxContext) {
+        assert!(tx_context::sender(ctx) == registry.admin, E_NOT_ADMIN);
+    }
+
+    #[allow(unused_mut_parameter)]
+    entry fun submit_audit(
         registry: &mut AuditRegistry,
         contract_id: address,
         walrus_blob_id: String,
@@ -52,9 +61,9 @@ module vera_audit::registry {
         timestamp_ms: u64,
         ctx: &mut TxContext
     ) {
-        assert!(tx_context::sender(ctx) == registry.admin, 0);
-        assert!(severity <= 4, 1);
-        assert!(timestamp_ms > 0, 2);
+        assert_admin(registry, ctx);
+        assert!(severity <= 4, E_INVALID_SEVERITY);
+        assert!(timestamp_ms > 0, E_INVALID_TIMESTAMP);
 
         let new_entry = AuditEntry {
             walrus_blob_id,
@@ -67,9 +76,9 @@ module vera_audit::registry {
 
         if (table::contains(&registry.audits, contract_id)) {
             let entries = table::borrow_mut(&mut registry.audits, contract_id);
-            vector::push_back(entries, new_entry); // Fix: Changed vec:: to vector::
+            vector::push_back(entries, new_entry);
         } else {
-            table::add(&mut registry.audits, contract_id, vector::singleton(new_entry)); // Fix: Changed vec:: to vector::
+            table::add(&mut registry.audits, contract_id, vector[new_entry]);
         };
 
         registry.total_audits = registry.total_audits + 1;
@@ -89,7 +98,7 @@ module vera_audit::registry {
         if (table::contains(&registry.audits, contract_id)) {
             *table::borrow(&registry.audits, contract_id)
         } else {
-            vector::empty() // Fix: Changed vec:: to vector::
+            vector[]
         }
     }
 

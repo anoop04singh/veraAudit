@@ -4,7 +4,7 @@ import { createAuditPipeline } from "../src/auditPipeline.js";
 
 function createBaseConfig() {
   return {
-    appNetworkLabel: "sui:testnet",
+    appNetworkLabel: "sui:mainnet",
     geminiModel: "gemini-2.5-flash",
     retryMaxAttempts: 2,
     retryBaseDelayMs: 1,

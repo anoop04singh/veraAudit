@@ -10,28 +10,32 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? "development",
 
   tatumApiKey: process.env.TATUM_API_KEY ?? "",
-  tatumSuiRpc: process.env.TATUM_SUI_RPC ?? "https://sui-testnet.gateway.tatum.io",
+  tatumSuiRpc: process.env.TATUM_SUI_RPC ?? "https://sui-mainnet.gateway.tatum.io",
+  tatumWalrusUploadUrl: process.env.TATUM_WALRUS_UPLOAD_URL ?? "https://api.tatum.io/v4/data/storage/upload",
+  tatumWalrusStatusPollMs: Number(process.env.TATUM_WALRUS_STATUS_POLL_MS ?? 5000),
+  tatumWalrusStatusMaxAttempts: Number(process.env.TATUM_WALRUS_STATUS_MAX_ATTEMPTS ?? 36),
+  tatumWalrusMaxFileSizeBytes: Number(process.env.TATUM_WALRUS_MAX_FILE_SIZE_BYTES ?? 50 * 1024 * 1024),
 
-  walrusPublisher:
-    process.env.WALRUS_PUBLISHER ?? "https://publisher.walrus-testnet.walrus.space",
+  walrusNetwork: process.env.WALRUS_NETWORK ?? "mainnet",
   walrusAggregator:
-    process.env.WALRUS_AGGREGATOR ?? "https://aggregator.walrus-testnet.walrus.space",
-  walrusEpochs: Number(process.env.WALRUS_EPOCHS ?? 10),
+    process.env.WALRUS_AGGREGATOR ?? "https://aggregator.walrus-mainnet.walrus.space",
 
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-3-flash-preview",
   geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001",
   geminiEmbeddingDimensions: Number(process.env.GEMINI_EMBEDDING_DIMENSIONS ?? 768),
 
   registryPackageId: process.env.REGISTRY_PACKAGE_ID ?? "",
   registryObjectId: process.env.REGISTRY_OBJECT_ID ?? "",
+  adminCapObjectId: process.env.ADMIN_CAP_OBJECT_ID ?? "",
+  suiClockObjectId: process.env.SUI_CLOCK_OBJECT_ID ?? "0x6",
   suiPrivateKey: process.env.SUI_PRIVATE_KEY ?? "",
 
-  appNetworkLabel: process.env.APP_NETWORK_LABEL ?? "sui:testnet",
+  appNetworkLabel: process.env.APP_NETWORK_LABEL ?? "sui:mainnet",
 
-  retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS ?? 4),
+  retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS ?? 8),
   retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS ?? 1500),
-  retryMaxDelayMs: Number(process.env.RETRY_MAX_DELAY_MS ?? 30000),
+  retryMaxDelayMs: Number(process.env.RETRY_MAX_DELAY_MS ?? 90000),
   contextModuleQueryConcurrency: Number(process.env.CONTEXT_MODULE_QUERY_CONCURRENCY ?? 2),
   maxContextFunctionQueries: Number(process.env.MAX_CONTEXT_FUNCTION_QUERIES ?? 12),
   contextTransactionsPerFunction: Number(process.env.CONTEXT_TRANSACTIONS_PER_FUNCTION ?? 5),
@@ -41,7 +45,7 @@ export const config = {
   maxTransactionCharsForAudit: Number(process.env.MAX_TRANSACTION_CHARS_FOR_AUDIT ?? 40000),
   maxEventCharsForAudit: Number(process.env.MAX_EVENT_CHARS_FOR_AUDIT ?? 30000),
   tatumMinIntervalMs: Number(process.env.TATUM_MIN_INTERVAL_MS ?? 450),
-  suiAnchorRpcFallback: process.env.SUI_ANCHOR_RPC_FALLBACK ?? "https://fullnode.testnet.sui.io:443",
+  suiAnchorRpcFallback: process.env.SUI_ANCHOR_RPC_FALLBACK ?? "https://fullnode.mainnet.sui.io:443",
   ragEnabled: process.env.RAG_ENABLED !== "false",
   ragUseEmbeddings: process.env.RAG_USE_EMBEDDINGS !== "false",
   ragTopK: Number(process.env.RAG_TOP_K ?? 8),
