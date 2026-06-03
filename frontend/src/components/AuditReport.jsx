@@ -13,7 +13,8 @@ export function AuditReport({ report }) {
   return (
     <section className="report">
       <div className="report-header">
-        <div>
+        <div className="report-header-copy">
+          <p className="eyebrow">AUDIT DETAILS</p>
           <h3>Audit Report</h3>
           <p className="report-summary">{report.summary}</p>
         </div>
@@ -54,7 +55,7 @@ export function AuditReport({ report }) {
                   <h5 className="finding-title">{finding.title}</h5>
                 </div>
               </div>
-              <div className="finding-body">
+              <div className="finding-body finding-body-grid">
                 <div className="finding-field">
                   <span className="field-label">Location</span>
                   <p className="mono field-value">{finding.location}</p>

@@ -48,6 +48,8 @@ test("audit pipeline emits progress, outputs and completion payload", async () =
       runGeminiAudit: async ({ recentTransactions }) => ({
         summary: "ok",
         severity: "low",
+        safe_to_interact: false,
+        safe_to_interact_rationale: "Low-severity issues exist, so user interaction should be cautious until reviewed.",
         findings: [{ id: "F-1", title: "x", severity: "low", location: "a", description: "b", recommendation: "c" }],
         positive_patterns: ["checks"],
         confidence: 0.74,
@@ -88,6 +90,7 @@ test("audit pipeline emits progress, outputs and completion payload", async () =
   assert.equal(completion.payload.blob_id, "blob-1");
   assert.equal(completion.payload.tx_digest, "digest-1");
   assert.equal(completion.payload.findings_count, 1);
+  assert.equal(completion.payload.safe_to_interact, false);
 });
 
 test("audit pipeline tolerates missing referenced events during event fallback", async () => {
@@ -117,6 +120,8 @@ test("audit pipeline tolerates missing referenced events during event fallback",
       runGeminiAudit: async () => ({
         summary: "ok",
         severity: "clean",
+        safe_to_interact: true,
+        safe_to_interact_rationale: "No user-facing interaction risks were identified in the available evidence.",
         findings: [],
         positive_patterns: [],
         confidence: 0.8,

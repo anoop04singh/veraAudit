@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { shortenHash, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
+import { shortenHash, toSuiScanObjectUrl, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function AuditHistory({ audits, onSelectAudit, selectedBlobId }) {
   if (!audits?.length) {
@@ -9,23 +9,27 @@ export function AuditHistory({ audits, onSelectAudit, selectedBlobId }) {
   return (
     <div className="audits-grid">
       {audits.map((audit) => {
-        const quiltId = audit.quilt_id ?? audit.blob_id ?? audit.walrus_blob_id;
+        const blobId = audit.quilt_id ?? audit.blob_id ?? audit.walrus_blob_id;
 
         return (
           <article
-            className={`audit-card audit-card--${audit.severity} ${selectedBlobId === quiltId ? "audit-card--selected" : ""}`}
-            key={`${quiltId}-${audit.tx_digest}`}
+            className={`audit-card audit-card--${audit.severity} ${selectedBlobId === blobId ? "audit-card--selected" : ""}`}
+            key={`${blobId}-${audit.tx_digest}`}
             role="button"
             tabIndex={0}
-            onClick={() => onSelectAudit?.(quiltId)}
+            onClick={() => onSelectAudit?.(blobId)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onSelectAudit?.(quiltId);
+                onSelectAudit?.(blobId);
               }
             }}
           >
             <div className="audit-card-header">
+              <div className="audit-card-titleblock">
+                <span className="audit-card-kicker">Audit event</span>
+                <p className="mono audit-card-primary">{shortenHash(audit.contract_id ?? blobId, 10, 8)}</p>
+              </div>
               <p className="audit-card-timestamp">
                 {new Date(audit.audited_at).toLocaleDateString(undefined, {
                   month: "short",
@@ -34,26 +38,35 @@ export function AuditHistory({ audits, onSelectAudit, selectedBlobId }) {
                   minute: "2-digit",
                 })}
               </p>
-              <span className={`sev sev-${audit.severity}`}>{audit.severity.toUpperCase()}</span>
             </div>
 
             <div className="audit-card-body">
               <div className="audit-info-row">
                 <span className="label">Contract</span>
-                <p className="mono address-mono">{shortenHash(audit.contract_id ?? quiltId, 12, 8)}</p>
-              </div>
-              <div className="audit-info-row">
-                <span className="label">Quilt</span>
                 <a
-                  className="smart-link mono"
-                  href={toWalrusBlobUrl(quiltId)}
+                  className="smart-link mono address-mono"
+                  href={toSuiScanObjectUrl(audit.contract_id)}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  {shortenHash(quiltId, 8, 5)}
+                  {shortenHash(audit.contract_id ?? blobId, 12, 8)}
                 </a>
               </div>
+
+              <div className="audit-info-row">
+                <span className="label">Blob</span>
+                <a
+                  className="smart-link mono"
+                  href={toWalrusBlobUrl(blobId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {shortenHash(blobId, 8, 5)}
+                </a>
+              </div>
+
               <div className="audit-info-row">
                 <span className="label">Tx</span>
                 <a
@@ -69,8 +82,9 @@ export function AuditHistory({ audits, onSelectAudit, selectedBlobId }) {
             </div>
 
             <div className="audit-card-footer">
-              <Link className="btn btn--sm" to={`/verify/${quiltId}`} onClick={(event) => event.stopPropagation()}>
-                View Report →
+              <span className={`sev sev-${audit.severity}`}>{audit.severity.toUpperCase()}</span>
+              <Link className="btn btn--sm" to={`/verify/${blobId}`} onClick={(event) => event.stopPropagation()}>
+                Verify Proof
               </Link>
             </div>
           </article>

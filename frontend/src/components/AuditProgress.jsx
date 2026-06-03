@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-/* ─── STEP CONFIG ───────────────────────────────────────── */
-
 const STEP_META = {
   fetch: {
     label: "FETCH",
@@ -33,7 +31,7 @@ const STEP_META = {
     tagClass: "log-tag--rag",
     logs: [
       "Extracting module signatures and object signals...",
-      "Generating targeted Sui/Move retrieval queries...",
+      "Generating targeted Sui and Move retrieval queries...",
       "Embedding query with Gemini embedding model...",
       "Ranking vulnerability patterns and official guidance...",
       "Security context assembled for Gemini.",
@@ -45,10 +43,10 @@ const STEP_META = {
     tagClass: "log-tag--audit",
     logs: [
       "Initializing Gemini 2.0 Flash session...",
-      "Submitting module source + context...",
+      "Submitting module source and context...",
       "Streaming structured reasoning output...",
       "Classifying findings by severity...",
-      "Scoring reentrancy, access control, arithmetic...",
+      "Scoring access control, arithmetic, and object safety...",
       "AI analysis complete. Findings structured.",
     ],
   },
@@ -57,8 +55,8 @@ const STEP_META = {
     abbrev: "WLRS",
     tagClass: "log-tag--walrus",
     logs: [
-      "Serialising audit JSON payload...",
-      "Uploading to Walrus decentralised storage...",
+      "Serializing audit JSON payload...",
+      "Uploading to Walrus storage...",
       "Content-addressing blob...",
       "Blob registered. Computing SHA-256 hash...",
       "Immutable blob stored. ID assigned.",
@@ -70,7 +68,7 @@ const STEP_META = {
     tagClass: "log-tag--anchor",
     logs: [
       "Building Sui transaction...",
-      "Attaching blob ID + hash to PTB...",
+      "Attaching blob ID and hash to PTB...",
       "Signing with auditor keypair...",
       "Broadcasting to Sui mainnet...",
       "Transaction confirmed. Digest recorded.",
@@ -82,62 +80,52 @@ const STEP_META = {
 const STEP_ORDER = ["fetch", "context", "rag", "audit", "walrus", "anchor"];
 const ENABLE_SYNTHETIC_LOGS = false;
 
-/* ─── HELPERS ───────────────────────────────────────────── */
-
 function getTime() {
   return new Date().toTimeString().slice(0, 8);
 }
 
 function statusLabel(status) {
-  if (status === "done")    return "✓ DONE";
-  if (status === "error")   return "✗ ERR";
-  if (status === "active")  return "● RUN";
-  return "○ ---";
+  if (status === "done") return "OK";
+  if (status === "error") return "ERR";
+  if (status === "active") return "RUN";
+  return "---";
 }
 
-/* ─── COMPONENTS ────────────────────────────────────────── */
+function ActiveDot() {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        borderRadius: "50%",
+        background: "var(--red)",
+        animation: "step-pulse-red 1.4s ease-in-out infinite",
+      }}
+    />
+  );
+}
 
 function StepNode({ stepKey, status, stepIndex, activeIndex }) {
   const meta = STEP_META[stepKey];
   const state =
-    status === "done"    ? "done"    :
-    status === "error"   ? "error"   :
-    stepIndex === activeIndex ? "active" : "pending";
+    status === "done" ? "done" : status === "error" ? "error" : stepIndex === activeIndex ? "active" : "pending";
 
   return (
     <div className={`step-node step-node--${state}`}>
       <div className="step-icon" aria-hidden="true">
-        {state === "done"  ? "✓" :
-         state === "error" ? "✗" :
-         state === "active" ? <ActiveDot /> :
-         meta.abbrev}
+        {state === "done" ? "OK" : state === "error" ? "ER" : state === "active" ? <ActiveDot /> : meta.abbrev}
       </div>
       <div className="step-name">{meta.label}</div>
       <div className="step-status-text">
-        {state === "done"   ? "complete" :
-         state === "error"  ? "failed"   :
-         state === "active" ? "running"  :
-         "waiting"}
+        {state === "done" ? "complete" : state === "error" ? "failed" : state === "active" ? "running" : "waiting"}
       </div>
     </div>
   );
 }
 
-function ActiveDot() {
-  return (
-    <span style={{
-      display: "inline-block",
-      width: 8, height: 8, borderRadius: "50%",
-      background: "var(--red)",
-      animation: "step-pulse-red 1.4s ease-in-out infinite",
-    }} />
-  );
-}
-
-/* ─── MAIN COMPONENT ────────────────────────────────────── */
-
 export function AuditProgress({ steps, backendLogs = [] }) {
-  const [logLines, setLogLines]   = useState([]);
+  const [logLines, setLogLines] = useState([]);
   const bodyRef = useRef(null);
   const prevStepsRef = useRef([]);
   const logCounter = useRef(0);
@@ -145,10 +133,9 @@ export function AuditProgress({ steps, backendLogs = [] }) {
 
   function addLog(tag, msg, cls = "") {
     const id = logCounter.current++;
-    setLogLines(prev => [...prev, { id, time: getTime(), tag, tagClass: STEP_META[tag]?.tagClass ?? "log-tag--sys", msg, cls }]);
+    setLogLines((prev) => [...prev, { id, time: getTime(), tag, tagClass: STEP_META[tag]?.tagClass ?? "log-tag--sys", msg, cls }]);
   }
 
-  /* Derive activity from step updates */
   useEffect(() => {
     if (!steps?.length) return;
 
@@ -159,34 +146,24 @@ export function AuditProgress({ steps, backendLogs = [] }) {
 
     const prev = prevStepsRef.current;
 
-    steps.forEach((step, i) => {
-      const old = prev.find(s => s.step === step.step);
+    steps.forEach((step) => {
+      const old = prev.find((entry) => entry.step === step.step);
       const meta = STEP_META[step.step];
       if (!meta) return;
 
-      /* Step just became active (pending → not pending / in progress) */
-      if (!old || old.status === "pending") {
-        if (step.status !== "pending") {
-          addLog(step.step, `Starting ${meta.label.toLowerCase()} phase...`, "log-msg--hl");
+      if ((!old || old.status === "pending") && step.status !== "pending") {
+        addLog(step.step, `Starting ${meta.label.toLowerCase()} phase...`, "log-msg--hl");
 
-          /* Stream fake detail logs with delays */
-          meta.logs.forEach((line, li) => {
-            setTimeout(() => {
-              addLog(step.step, line);
-            }, 350 + li * 320);
-          });
-        }
+        meta.logs.forEach((line, index) => {
+          setTimeout(() => addLog(step.step, line), 350 + index * 320);
+        });
       }
 
-      /* Step just finished */
       if (old && old.status !== "done" && step.status === "done") {
         const delay = (meta.logs.length + 1) * 320;
-        setTimeout(() => {
-          addLog(step.step, step.message ?? `${meta.label} complete.`, "log-msg--ok");
-        }, delay);
+        setTimeout(() => addLog(step.step, step.message ?? `${meta.label} complete.`, "log-msg--ok"), delay);
       }
 
-      /* Error */
       if (step.status === "error") {
         addLog(step.step, `Error in ${meta.label}: ${step.message ?? "unknown"}`, "log-msg--err");
       }
@@ -195,16 +172,21 @@ export function AuditProgress({ steps, backendLogs = [] }) {
     prevStepsRef.current = steps;
   }, [steps]);
 
-  /* Add sys boot line on mount */
   useEffect(() => {
-    setLogLines([{ id: -1, time: getTime(), tag: "sys", tagClass: "log-tag--sys", msg: "VeraAudit pipeline initialised.", cls: "log-msg--hl" }]);
+    setLogLines([
+      {
+        id: -1,
+        time: getTime(),
+        tag: "sys",
+        tagClass: "log-tag--sys",
+        msg: "VeraAudit pipeline initialized.",
+        cls: "log-msg--hl",
+      },
+    ]);
   }, []);
 
-  /* Auto-scroll terminal */
   useEffect(() => {
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [logLines]);
 
   useEffect(() => {
@@ -230,70 +212,45 @@ export function AuditProgress({ steps, backendLogs = [] }) {
   }, [backendLogs]);
 
   useEffect(() => {
-    if (backendLogs.length === 0) {
-      consumedBackendLogsRef.current = 0;
-    }
+    if (backendLogs.length === 0) consumedBackendLogsRef.current = 0;
   }, [backendLogs.length]);
 
-  const doneCount  = steps.filter(s => s.status === "done").length;
-  const fillPct    = STEP_ORDER.length > 0 ? (doneCount / STEP_ORDER.length) * 100 : 0;
+  const doneCount = steps.filter((step) => step.status === "done").length;
+  const fillPct = STEP_ORDER.length > 0 ? (doneCount / STEP_ORDER.length) * 100 : 0;
   const isComplete = doneCount === STEP_ORDER.length;
-  const hasError   = steps.some(s => s.status === "error");
+  const hasError = steps.some((step) => step.status === "error");
   const activeIdx = steps.findIndex((step) => step.status === "running");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-
-      {/* ── STEP PIPELINE ─────────────────────────────────── */}
+    <div className="progress-shell">
       <div className="step-pipeline" role="list" aria-label="Audit pipeline steps">
-        {/* Progress fill track */}
-        <div
-          className="step-fill-track"
-          style={{ width: `${fillPct}%` }}
-          aria-hidden="true"
-        />
-        {STEP_ORDER.map((key, i) => {
-          const step = steps.find(s => s.step === key) ?? { step: key, status: "pending", message: "" };
-          return (
-            <StepNode
-              key={key}
-              stepKey={key}
-              status={step.status}
-              stepIndex={i}
-              activeIndex={activeIdx}
-            />
-          );
+        <div className="step-fill-track" style={{ width: `${fillPct}%` }} aria-hidden="true" />
+        {STEP_ORDER.map((key, index) => {
+          const step = steps.find((entry) => entry.step === key) ?? { step: key, status: "pending", message: "" };
+          return <StepNode key={key} stepKey={key} status={step.status} stepIndex={index} activeIndex={activeIdx} />;
         })}
       </div>
 
-      {/* ── TERMINAL ──────────────────────────────────────── */}
       <div className="terminal-shell" role="log" aria-label="Audit progress log" aria-live="polite">
         <div className="terminal-bar" aria-hidden="true">
           <span className="terminal-dot red" />
           <span className="terminal-dot amber" />
           <span className="terminal-dot green" />
-          <span className="terminal-title">
-            {hasError    ? "✗ PIPELINE FAILED"   :
-             isComplete  ? "✓ AUDIT COMPLETE"     :
-             "● PIPELINE RUNNING"}
-          </span>
+          <span className="terminal-title">{hasError ? "PIPELINE FAILED" : isComplete ? "AUDIT COMPLETE" : "PIPELINE RUNNING"}</span>
         </div>
 
         <div className="terminal-body" ref={bodyRef}>
-          {logLines.map(line => (
+          {logLines.map((line) => (
             <div className="log-line" key={line.id}>
               <span className="log-time">{line.time}</span>
               <span className={`log-tag ${line.tagClass}`}>[{line.tag.toUpperCase()}]</span>
               <span className={`log-msg ${line.cls ?? ""}`}>
                 {line.msg}
-                {line.details && (
-                  <pre className="log-details">{line.details}</pre>
-                )}
+                {line.details && <pre className="log-details">{line.details}</pre>}
               </span>
             </div>
           ))}
 
-          {/* Blinking cursor while running */}
           {!isComplete && !hasError && (
             <div className="log-line">
               <span className="log-time">{getTime()}</span>
@@ -308,47 +265,54 @@ export function AuditProgress({ steps, backendLogs = [] }) {
             <div className="log-line">
               <span className="log-time">{getTime()}</span>
               <span className="log-tag log-tag--anchor">[DONE]</span>
-              <span className="log-msg log-msg--ok">
-                All pipeline stages complete. Audit anchored on-chain.
-              </span>
+              <span className="log-msg log-msg--ok">All pipeline stages complete. Audit anchored on-chain.</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── STEP STATUS LIST (compact) ────────────────────── */}
       <div className="progress-list" aria-label="Step status summary">
-        {steps.map(step => {
+        {steps.map((step) => {
           const meta = STEP_META[step.step];
+          const active = activeIdx === STEP_ORDER.indexOf(step.step);
           return (
             <div className="progress-row" key={step.step}>
               <p>
-              <span style={{
-                  color: step.status === "done"  ? "var(--ok)"  :
-                         step.status === "error" ? "var(--high)" :
-                         activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--red)" :
-                         "var(--muted2)",
-                  marginRight: "0.6rem",
-                  fontSize: "0.68rem",
-                  letterSpacing: "0.06em",
-                }}>
+                <span
+                  style={{
+                    color:
+                      step.status === "done"
+                        ? "var(--ok)"
+                        : step.status === "error"
+                          ? "var(--high)"
+                          : active
+                            ? "var(--red)"
+                            : "var(--muted2)",
+                    marginRight: "0.6rem",
+                    fontSize: "0.68rem",
+                    letterSpacing: "0.06em",
+                  }}
+                >
                   {meta?.label ?? step.step}
                 </span>
-                {step.message && step.message !== step.step
-                  ? step.message
-                  : (meta?.logs?.[0] ?? "—")}
+                {step.message && step.message !== step.step ? step.message : meta?.logs?.[0] ?? "-"}
               </p>
-              <span style={{
-                color: step.status === "done"  ? "var(--ok)"   :
-                       step.status === "error" ? "var(--high)"  :
-                       activeIdx === STEP_ORDER.indexOf(step.step) ? "var(--ink)" :
-                       "var(--muted2)",
-                fontSize: "0.65rem", letterSpacing: "0.08em",
-              }}>
+              <span
+                style={{
+                  color:
+                    step.status === "done"
+                      ? "var(--ok)"
+                      : step.status === "error"
+                        ? "var(--high)"
+                        : active
+                          ? "var(--ink)"
+                          : "var(--muted2)",
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.08em",
+                }}
+              >
                 {statusLabel(
-                  step.status === "done" ? "done" :
-                  step.status === "error" ? "error" :
-                  step.status === "running" ? "active" : "pending"
+                  step.status === "done" ? "done" : step.status === "error" ? "error" : step.status === "running" ? "active" : "pending",
                 )}
               </span>
             </div>

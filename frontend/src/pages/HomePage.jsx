@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MetricsBar } from "../components/MetricsBar.jsx";
 import { apiJson } from "../utils/api.js";
-import { shortenHash, toSuiScanObjectUrl, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
+import { shortenHash, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
 export function HomePage() {
   const navigate = useNavigate();
   const [contractId, setContractId] = useState("");
-  const [metrics,    setMetrics]    = useState(null);
-  const [error,      setError]      = useState("");
+  const [metrics, setMetrics] = useState(null);
+  const [error, setError] = useState("");
 
   async function loadMetrics() {
     try {
@@ -25,18 +25,18 @@ export function HomePage() {
     loadMetrics();
   }, []);
 
-  /* Reveal observer */
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("in-view"); }),
-      { threshold: 0.1 }
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add("in-view")),
+      { threshold: 0.1 },
     );
-    document.querySelectorAll(".reveal, .reveal-left, .reveal-scale").forEach(n => obs.observe(n));
-    return () => obs.disconnect();
+
+    document.querySelectorAll(".reveal").forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
   }, []);
 
-  function handleSubmit(e) {
-    e.preventDefault();
+  function handleSubmit(event) {
+    event.preventDefault();
     if (!contractId.trim()) return;
     navigate(`/audit/${contractId.trim()}`);
   }
@@ -44,8 +44,6 @@ export function HomePage() {
   return (
     <section className="section audit-hub">
       <div className="s-inner">
-
-        {/* ── HERO ──────────────────────────────────────────── */}
         <motion.div
           className="audit-hero-grid reveal in-view"
           initial={{ opacity: 0, y: 20 }}
@@ -53,32 +51,32 @@ export function HomePage() {
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
           <div className="audit-copy">
-            <p className="eyebrow">Audit Workspace</p>
+            <p className="eyebrow">AUDIT WORKSPACE</p>
             <h1 className="hero-h1">
-              <span className="h1-line">Run Or Verify</span>
-              <span className="h1-line h1-line--push">Sui Contract Audits</span>
+              <span className="h1-line">RUN AUDITS.</span>
+              <span className="h1-line h1-line--push">VERIFY EVIDENCE.</span>
             </h1>
             <p className="hero-lead">
-              Paste a Sui package ID to check audit history or trigger a fresh audit.
-              Results are stored on Walrus and anchored on Sui mainnet, with chain
-              context fetched via Tatum RPC.
+              Inspect an existing audit trail or trigger a new proof run. Tatum fetches the package modules and transaction context, then the result is stored on Walrus and anchored on Sui.
             </p>
 
             <form className="search-row" onSubmit={handleSubmit}>
               <input
                 value={contractId}
-                onChange={e => setContractId(e.target.value)}
+                onChange={(event) => setContractId(event.target.value)}
                 placeholder="Paste Sui package ID (0x...)"
                 aria-label="Sui package ID"
               />
               <button type="submit" className="btn btn--primary">
-                Open Contract
+                Inspect Contract
               </button>
             </form>
 
             <div className="tech-tag-row">
-              {["Tatum RPC", "Gemini 2.0", "Walrus", "Sui Mainnet"].map(t => (
-                <span key={t} className="tech-tag">{t}</span>
+              {["TATUM RPC", "GEMINI", "WALRUS", "SUI MAINNET"].map((item) => (
+                <span key={item} className="tech-tag">
+                  {item}
+                </span>
               ))}
             </div>
           </div>
@@ -88,117 +86,115 @@ export function HomePage() {
               <span className="orb orb-a" />
               <span className="orb orb-b" />
               <span className="orb orb-c" />
-              <div className="orbital-core">VERIFY</div>
             </div>
             <div className="pipeline-mini">
-              {["FETCH", "CTX", "RAG", "AI", "BLOB", "SUI"].map(s => (
-                <div key={s} className="p-step">{s}</div>
+              {["FETCH", "CTX", "RAG", "AI", "BLOB", "SUI"].map((step) => (
+                <div key={step} className="p-step">
+                  {step}
+                </div>
               ))}
             </div>
           </aside>
         </motion.div>
 
-        {/* ── METRICS ───────────────────────────────────────── */}
         <MetricsBar metrics={metrics} />
 
-        {/* ── RECENT AUDITS ─────────────────────────────────── */}
-        <div className="panel">
-          <p className="eyebrow" style={{ marginBottom: "0.8rem" }}>Recent Audits</p>
-          {error && (
-            <p className="error-text" style={{ fontSize: "0.8rem" }}>{error}</p>
-          )}
+        <div className="panel reveal">
+          <p className="eyebrow">RECENT AUDITS</p>
+          <p className="section-caption">
+            The latest evidence records for audited packages. Open any card to inspect the stored blob, transaction, and detailed report.
+          </p>
+          {error && <p className="error-text recent-error">{error}</p>}
           {!metrics?.recent_audits?.length && (
-            <p className="muted" style={{ fontSize: "0.82rem" }}>
-              No events yet. Run your first audit above.
-            </p>
+            <p className="muted recent-empty">No events yet. Run the first audit above.</p>
           )}
+
           {!!metrics?.recent_audits?.length && (
             <div className="list">
-              {metrics.recent_audits.map(item => {
-                const quiltId = item.quilt_id ?? item.blob_id ?? item.walrus_blob_id;
-                const canOpenReport = Boolean(quiltId);
+              {metrics.recent_audits.map((item) => {
+                const blobId = item.quilt_id ?? item.blob_id ?? item.walrus_blob_id;
+                const canOpenReport = Boolean(blobId);
+
                 return (
-                <div
-                  className="list-item list-item--interactive"
-                  key={`${quiltId}-${item.tx_digest}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    if (!canOpenReport) return;
-                    navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(quiltId)}`);
-                  }}
-                  onKeyDown={(event) => {
-                    if (!canOpenReport) return;
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(quiltId)}`);
-                    }
-                  }}
-                >
-                  <div className="list-head">
-                    <a
-                      className="smart-link mono"
-                      href={toSuiScanObjectUrl(item.contract_id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {shortenHash(item.contract_id)}
-                    </a>
-                    <span className={`sev sev-${item.severity}`}>{item.severity}</span>
+                  <div
+                    className="list-item list-item--interactive"
+                    key={`${blobId}-${item.tx_digest}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (!canOpenReport) return;
+                      navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (!canOpenReport) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(`/audit/${item.contract_id}?blob=${encodeURIComponent(blobId)}`);
+                      }
+                    }}
+                  >
+                    <div className="list-head">
+                      <p className="mono list-contract-id">
+                        {shortenHash(item.contract_id)}
+                      </p>
+                      <span className={`sev sev-${item.severity}`}>{item.severity}</span>
+                    </div>
+
+                    <p className="mono">
+                      blob:{" "}
+                      <a
+                        className="smart-link"
+                        href={toWalrusBlobUrl(blobId)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {shortenHash(blobId)}
+                      </a>
+                    </p>
+
+                    <p className="mono">
+                      tx:{" "}
+                      <a
+                        className="smart-link"
+                        href={toSuiScanTxUrl(item.tx_digest)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {shortenHash(item.tx_digest)}
+                      </a>
+                    </p>
+
+                    <p className="mono subtle-text">{item.audited_at}</p>
                   </div>
-                  <p className="mono">
-                    quilt:{" "}
-                    <a
-                      className="smart-link"
-                      href={toWalrusBlobUrl(quiltId)}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {shortenHash(quiltId)}
-                    </a>
-                  </p>
-                  <p className="mono">
-                    tx:{" "}
-                    <a
-                      className="smart-link"
-                      href={toSuiScanTxUrl(item.tx_digest)}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {shortenHash(item.tx_digest)}
-                    </a>
-                  </p>
-                  <p className="mono subtle-text">{item.audited_at}</p>
-                </div>
                 );
               })}
             </div>
           )}
         </div>
 
-        {/* ── PIPELINE EXPLAINER ────────────────────────────── */}
-        <div className="panel">
-          <p className="eyebrow" style={{ marginBottom: "0.8rem" }}>Audit Pipeline</p>
+        <div className="panel reveal">
+          <p className="eyebrow">AUDIT PIPELINE</p>
+          <p className="section-caption">
+            A concise view of how chain data, analysis, storage, and proof anchoring move through the system.
+          </p>
           <div className="flow-grid">
             {[
-              { n: "1.", title: "Tatum Sui RPC Read",  body: "Module introspection + event/transaction context from Sui mainnet." },
-              { n: "2.", title: "RAG Retrieval",        body: "Gemini embeddings retrieve Sui/Move security context before analysis." },
-              { n: "3.", title: "Gemini Analysis",      body: "Structured findings with severity and technical reasoning metadata." },
-              { n: "4.", title: "Walrus Write",         body: "Immutable audit JSON stored as a Walrus quilt patch for independent retrieval." },
-              { n: "5.", title: "Sui Anchor",           body: "On-chain proof linking contract, auditor, quilt ID, epoch, and hash." },
-            ].map(f => (
-              <div className="flow-item" key={f.n}>
-                <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>{f.n}</p>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
+              { n: "01", title: "TATUM MODULE FETCH", body: "Modules, package metadata, and transaction context are pulled from Sui mainnet." },
+              { n: "02", title: "RAG RETRIEVAL", body: "Targeted Move security context is loaded before the model begins analysis." },
+              { n: "03", title: "GEMINI ANALYSIS", body: "Structured findings generated with severity scores and technical reasoning." },
+              { n: "04", title: "WALRUS WRITE", body: "Tatum is used to coordinate the immutable Walrus evidence upload." },
+              { n: "05", title: "SUI ANCHOR", body: "Tatum submits the final Sui anchoring transaction for public verification." },
+            ].map((item) => (
+              <div className="flow-item" key={item.n}>
+                <p className="eyebrow">{item.n}</p>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
               </div>
             ))}
           </div>
         </div>
-
       </div>
     </section>
   );

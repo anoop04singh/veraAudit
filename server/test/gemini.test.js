@@ -28,6 +28,8 @@ test("runGeminiAudit retries 429 and returns parsed JSON", async () => {
           text: JSON.stringify({
             summary: "test",
             severity: "low",
+            safe_to_interact: true,
+            safe_to_interact_rationale: "No material user interaction risk was identified in the available evidence.",
             findings: [],
             positive_patterns: [],
             confidence: 0.55,
@@ -46,6 +48,7 @@ test("runGeminiAudit retries 429 and returns parsed JSON", async () => {
   assert.equal(calls, 2);
   assert.equal(result.summary, "test");
   assert.equal(result.severity, "low");
+  assert.equal(result.safe_to_interact, true);
 
   __setGeminiClientForTests(null);
   config.geminiApiKey = previousApiKey;

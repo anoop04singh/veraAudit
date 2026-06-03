@@ -1,19 +1,30 @@
 module vera_audit::registry {
     use std::string::String;
+    use sui::clock::{Self, Clock};
     use sui::event;
     use sui::object::{Self, UID};
     use sui::table::{Self, Table};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
-    use std::vector;
+    use std::vector; 
 
-    const E_NOT_ADMIN: u64 = 0;
-    const E_INVALID_SEVERITY: u64 = 1;
-    const E_INVALID_TIMESTAMP: u64 = 2;
+    // --- Error Constants ---
+    const EInvalidSeverity: u64 = 1;
+
+    // --- Capabilities ---
+    
+    /// Capability granting permission to submit audits.
+    /// `store` ability so the capability can be transferred, 
+    /// sold, or placed into a multisig/DAO in the future.
+    public struct AdminCap has key, store {
+        id: UID
+    }
+
+    // --- Structs ---
 
     public struct AuditRegistry has key {
         id: UID,
-        admin: address,
+        admin: address, 
         total_audits: u64,
         audits: Table<address, vector<AuditEntry>>,
     }
@@ -37,6 +48,8 @@ module vera_audit::registry {
         timestamp_ms: u64,
     }
 
+    // --- Initialization ---
+
     fun init(ctx: &mut TxContext) {
         let registry = AuditRegistry {
             id: object::new(ctx),
@@ -44,26 +57,32 @@ module vera_audit::registry {
             total_audits: 0,
             audits: table::new(ctx),
         };
+
+        // Mint the AdminCap and send it directly to the deployer.
+        transfer::transfer(
+            AdminCap { id: object::new(ctx) }, 
+            tx_context::sender(ctx)
+        );
+
+        // Share the registry so anyone can read from it.
         transfer::share_object(registry);
     }
 
-    fun assert_admin(registry: &AuditRegistry, ctx: &TxContext) {
-        assert!(tx_context::sender(ctx) == registry.admin, E_NOT_ADMIN);
-    }
+    // --- Public / Entry Functions ---
 
-    #[allow(unused_mut_parameter)]
-    entry fun submit_audit(
+    public fun submit_audit(
+        _: &AdminCap, 
         registry: &mut AuditRegistry,
+        clock: &Clock, 
         contract_id: address,
         walrus_blob_id: String,
         audit_hash: String,
         severity: u8,
-        timestamp_ms: u64,
         ctx: &mut TxContext
     ) {
-        assert_admin(registry, ctx);
-        assert!(severity <= 4, E_INVALID_SEVERITY);
-        assert!(timestamp_ms > 0, E_INVALID_TIMESTAMP);
+        assert!(severity <= 4, EInvalidSeverity);
+
+        let timestamp_ms = clock::timestamp_ms(clock);
 
         let new_entry = AuditEntry {
             walrus_blob_id,
@@ -76,13 +95,14 @@ module vera_audit::registry {
 
         if (table::contains(&registry.audits, contract_id)) {
             let entries = table::borrow_mut(&mut registry.audits, contract_id);
-            vector::push_back(entries, new_entry);
+            vector::push_back(entries, new_entry); 
         } else {
+            // Using the new vector literal syntax
             table::add(&mut registry.audits, contract_id, vector[new_entry]);
         };
 
         registry.total_audits = registry.total_audits + 1;
-
+        
         event::emit(AuditSubmitted {
             contract_id,
             walrus_blob_id,
@@ -94,11 +114,13 @@ module vera_audit::registry {
         });
     }
 
+    // --- View Functions ---
+
     public fun get_audits(registry: &AuditRegistry, contract_id: address): vector<AuditEntry> {
         if (table::contains(&registry.audits, contract_id)) {
             *table::borrow(&registry.audits, contract_id)
         } else {
-            vector[]
+            vector[] 
         }
     }
 

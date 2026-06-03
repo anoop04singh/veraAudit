@@ -138,7 +138,7 @@ app.get("/api/verify/:blobId", async (req, res) => {
     if (!event) {
       return res.json({
         verified: false,
-        reason: "No on-chain audit event found for this blob ID.",
+        reason: "No on-chain audit event found for this quilt ID.",
       });
     }
 

@@ -6,3 +6,4 @@ coverage
 *.log
 frontend/dist
 contracts/build
+docs

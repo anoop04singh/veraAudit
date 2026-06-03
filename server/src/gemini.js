@@ -10,6 +10,12 @@ const auditSchema = {
       type: "string",
       enum: ["clean", "low", "medium", "high", "critical"],
     },
+    safe_to_interact: {
+      type: "boolean",
+    },
+    safe_to_interact_rationale: {
+      type: "string",
+    },
     findings: {
       type: "array",
       items: {
@@ -37,7 +43,15 @@ const auditSchema = {
       type: "number",
     },
   },
-  required: ["summary", "severity", "findings", "positive_patterns", "confidence"],
+  required: [
+    "summary",
+    "severity",
+    "safe_to_interact",
+    "safe_to_interact_rationale",
+    "findings",
+    "positive_patterns",
+    "confidence",
+  ],
 };
 
 function truncateJsonByChars(value, maxChars) {
@@ -94,6 +108,9 @@ function buildAuditPrompt({ contractId, moduleData, recentEvents, recentTransact
     "Use the retrieved Sui/Move security context to ground findings and recommendations.",
     "When a finding is informed by retrieved context, include a short reference field using the matching RAG source label or URL.",
     "Do not invent vulnerabilities that are not supported by the module snapshot, event context, or retrieved context.",
+    "Return safe_to_interact=true only when a normal user interacting with the contract is reasonably safe based on the available evidence.",
+    "Be conservative: if there are unresolved high-risk issues, missing authority checks, fund-loss risk, or material uncertainty, return safe_to_interact=false.",
+    "safe_to_interact_rationale must be a short user-facing explanation focused on interaction risk.",
     "Focus on Move/Sui-specific risks:",
     "- object ownership and shared object misuse",
     "- missing authority checks",

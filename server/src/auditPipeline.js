@@ -39,6 +39,8 @@ function normalizeAuditOutput(auditResult) {
   return {
     summary: auditResult.summary,
     severity: auditResult.severity,
+    safe_to_interact: auditResult.safe_to_interact,
+    safe_to_interact_rationale: auditResult.safe_to_interact_rationale,
     findings_count: Array.isArray(auditResult.findings) ? auditResult.findings.length : 0,
     finding_titles: (auditResult.findings ?? []).slice(0, 5).map((finding) => finding.title),
     confidence: auditResult.confidence,
@@ -322,13 +324,13 @@ export function createAuditPipeline({ config, services }) {
       ...auditResult,
     };
 
-    markStepStart("walrus", "Storing audit blob on Walrus...");
+    markStepStart("walrus", "Storing audit quilt on Walrus...");
     log("walrus", "Uploading immutable audit payload.");
     const quiltId = await storeAuditBlob(auditBlob, {
       onRetryLog: (retryMessage) => log("walrus", retryMessage),
     });
     const auditHash = createHash("sha256").update(JSON.stringify(auditBlob)).digest("hex");
-    markStepDone("walrus", "Walrus blob stored.", {
+    markStepDone("walrus", "Walrus quilt stored.", {
       quilt_id: quiltId,
       blob_id: quiltId,
       audit_hash: auditHash,
@@ -358,6 +360,8 @@ export function createAuditPipeline({ config, services }) {
       anchor_simulated: anchor.simulated ?? false,
       summary: auditResult.summary,
       severity: auditResult.severity,
+      safe_to_interact: auditResult.safe_to_interact,
+      safe_to_interact_rationale: auditResult.safe_to_interact_rationale,
       findings_count: Array.isArray(auditResult.findings) ? auditResult.findings.length : 0,
       audited_at: new Date(auditedAtMs).toISOString(),
       duration_ms: totalDurationMs,

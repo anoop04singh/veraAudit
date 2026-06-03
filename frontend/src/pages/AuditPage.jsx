@@ -28,27 +28,30 @@ function severityFromInt(value) {
 }
 
 function buildStreamAscii(tick, cols = 56, rows = 12) {
-  const chars = ["▢", "▣", "▤", "▥", "█", "░", "░"];
+  const chars = [".", ":", "-", "=", "+", "*", "#"];
   const lines = [];
-  for (let y = 0; y < rows; y++) {
+
+  for (let y = 0; y < rows; y += 1) {
     let line = "";
-    for (let x = 0; x < cols; x++) {
+    for (let x = 0; x < cols; x += 1) {
       const scannerPos = (tick * 0.5 + y * 0.3) % cols;
       const dist = Math.abs(x - scannerPos);
       const wave = Math.sin((x + tick * 0.15) * 0.22 + y * 0.35);
-      const isActive = dist < 3 ? 1 : Math.max(0, (wave * 0.5 + 0.5));
+      const isActive = dist < 3 ? 1 : Math.max(0, wave * 0.5 + 0.5);
       const idx = Math.floor(isActive * (chars.length - 1));
       line += chars[idx];
     }
     lines.push(line);
   }
+
   return lines.join("\n");
 }
 
 function HudBar({ streaming, steps, hasError }) {
   if (!streaming && !hasError) return null;
-  const done = steps.filter((s) => s.status === "done").length;
+  const done = steps.filter((step) => step.status === "done").length;
   const pct = Math.round((done / steps.length) * 100);
+
   return (
     <div className="hud-bar">
       <div className="hud-track">
@@ -61,6 +64,7 @@ function HudBar({ streaming, steps, hasError }) {
 
 function StreamingVisual({ tick, streaming }) {
   if (!streaming) return null;
+
   return (
     <div className="stream-visual stream-visual--audit">
       <div className="stream-visual-scanner">
@@ -70,8 +74,8 @@ function StreamingVisual({ tick, streaming }) {
         <div className="stream-visual-overlay" />
       </div>
       <div className="stream-visual-right">
-        <p className="stream-visual-title">Contract Analysis</p>
-        <p className="stream-visual-subtitle">Scanning bytecode...</p>
+        <p className="stream-visual-title">CONTRACT ANALYSIS</p>
+        <p className="stream-visual-subtitle">Streaming bytecode review and context retrieval...</p>
         <div className="stream-visual-dots">
           <span />
           <span />
@@ -137,11 +141,8 @@ export function AuditPage() {
     try {
       await streamAudit(contractId, (event, payload) => {
         if (event === "progress") {
-          if (payload.status === "error") {
-            patchStep(payload.step, "error", payload.message);
-          } else {
-            patchStep(payload.step, "running", payload.message);
-          }
+          if (payload.status === "error") patchStep(payload.step, "error", payload.message);
+          else patchStep(payload.step, "running", payload.message);
         }
 
         if (event === "step_output") {
@@ -183,9 +184,7 @@ export function AuditPage() {
             },
             ...current,
           ]);
-          if (completedBlobId) {
-            setSearchParams({ blob: completedBlobId });
-          }
+          if (completedBlobId) setSearchParams({ blob: completedBlobId });
           setReport({
             summary: payload.summary,
             severity: payload.severity,
@@ -227,9 +226,7 @@ export function AuditPage() {
   }, [selectedBlobId, latest?.quilt_id, latest?.walrus_blob_id, latest?.blob_id]);
 
   useEffect(() => {
-    if (!loading && audits.length === 0) {
-      runAudit();
-    }
+    if (!loading && audits.length === 0) runAudit();
   }, [loading]);
 
   useEffect(() => {
@@ -248,14 +245,14 @@ export function AuditPage() {
       <section className="audit-hero section">
         <div className="s-inner audit-hero-inner">
           <div className="audit-hero-left">
-            <p className="eyebrow">Audit Workspace</p>
+            <p className="eyebrow">AUDIT WORKSPACE</p>
             <h1 className="audit-hero-title">
-              <span>Run or Verify</span>
-              <span className="accent">Sui Contract</span>
-              <span>Audits</span>
+              <span>AUDIT TIMELINE</span>
+              <span className="accent">PROOF RECORDS</span>
+              <span>FOR SUI PACKAGES</span>
             </h1>
             <p className="audit-hero-desc">
-              Paste a Sui package ID to check audit history or trigger a fresh audit. Results are stored on Walrus and anchored on Sui mainnet, with chain context fetched via Tatum RPC.
+              Review history, run fresh analysis, and validate how Tatum fetched chain data, uploaded Walrus evidence, and submitted the Sui anchor.
             </p>
           </div>
           <div className="audit-hero-visual">
@@ -272,95 +269,73 @@ export function AuditPage() {
 
       <section className="section audit-hub">
         <div className="s-inner">
-        <motion.div
-          className="audit-head"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <p className="eyebrow mono">
-            <a className="smart-link" href={toSuiScanObjectUrl(contractId)} target="_blank" rel="noreferrer">
-              {shortenHash(contractId, 14, 10)}
-            </a>
-          </p>
-          <h1 className="s-h2">Audit Timeline</h1>
-        </motion.div>
-
-        {loading && (
-          <div className="status-banner">
-            <span className="status-dot status-dot-pulse" />
-            <span className="status-label">Checking on-chain history...</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="status-banner status-banner-error">
-            <span className="status-chip status-chip-error">ERROR</span>
-            <span className="error-text">{error}</span>
-          </div>
-        )}
-
-        <div className="actions-row">
-          <button className="btn btn--primary" onClick={runAudit} disabled={streaming}>
-            {streaming ? "Running Audit..." : "Run New Audit"}
-          </button>
-          {latest && <span className="subtle-text">Last run: {latest.audited_at ? new Date(latest.audited_at).toLocaleString() : "—"}</span>}
-        </div>
-
-        <HudBar streaming={streaming} steps={steps} hasError={!!error} />
-        <StreamingVisual tick={tick} streaming={streaming} />
-
-        {(streaming || error) && (
-          <div className="pipeline-shell">
-            <div className="pipeline-head">
-              <span className="eyebrow">{error ? "Pipeline Status" : "Live Pipeline"}</span>
-              <span className={`status-dot ${streaming ? "status-dot-pulse" : ""}`} style={{ background: error ? "var(--high)" : "var(--ok)" }} />
-            </div>
-            <AuditProgress steps={steps} backendLogs={backendLogs} />
-          </div>
-        )}
-
-        {!streaming && (
-          <>
-            <div className="list-section">
-              <p className="eyebrow">Audit History</p>
-              <AuditHistory audits={audits} onSelectAudit={handleSelectAudit} selectedBlobId={selectedBlobId} />
-            </div>
-
-            {report && (
-              <div className="panel">
-                <AuditReport report={report} />
-              </div>
-            )}
-          </>
-        )}
-
-        {!streaming && (
-          <div className="panel">
-            <p className="eyebrow" style={{ marginBottom: "0.8rem" }}>
-              Audit Pipeline
+          <motion.div
+            className="audit-head"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <p className="eyebrow mono">
+              <a className="smart-link" href={toSuiScanObjectUrl(contractId)} target="_blank" rel="noreferrer">
+                {shortenHash(contractId, 14, 10)}
+              </a>
             </p>
-            <div className="flow-grid">
-              {[
-                { n: "1", title: "Tatum Sui RPC Read", body: "Module introspection + event/transaction context from Sui mainnet." },
-                { n: "2", title: "RAG Retrieval", body: "Sui/Move security context retrieved with Gemini embeddings and targeted vulnerability queries." },
-                { n: "3", title: "Gemini Analysis", body: "Structured findings with severity and technical reasoning metadata." },
-                { n: "4", title: "Walrus Write", body: "Immutable audit JSON stored as a Walrus quilt patch for independent retrieval." },
-                { n: "5", title: "Sui Anchor", body: "On-chain proof linking contract, auditor, quilt ID, epoch, and hash." },
-              ].map((item) => (
-                <div className="flow-item" key={item.n}>
-                  <p className="eyebrow" style={{ marginBottom: "0.35rem" }}>
-                    {item.n}
-                  </p>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              ))}
+            <h1 className="s-h2">VERIFIABLE AUDIT TIMELINE</h1>
+          </motion.div>
+
+          {loading && (
+            <div className="status-banner">
+              <span className="status-dot status-dot-pulse" />
+              <span className="status-label">CHECKING ON-CHAIN HISTORY...</span>
             </div>
+          )}
+
+          {error && (
+            <div className="status-banner status-banner-error">
+              <span className="status-chip status-chip-error">ERROR</span>
+              <span className="error-text">{error}</span>
+            </div>
+          )}
+
+          <div className="actions-row">
+            <button className="btn btn--primary" onClick={runAudit} disabled={streaming}>
+              {streaming ? "Running Audit..." : "Run Fresh Audit"}
+            </button>
+            {latest && <span className="subtle-text">Last run: {latest.audited_at ? new Date(latest.audited_at).toLocaleString() : "-"}</span>}
           </div>
-        )}
-      </div>
-    </section>
+
+          <HudBar streaming={streaming} steps={steps} hasError={!!error} />
+          <StreamingVisual tick={tick} streaming={streaming} />
+
+          {(streaming || error) && (
+            <div className="pipeline-shell">
+              <div className="pipeline-head">
+                <span className="eyebrow">{error ? "PIPELINE STATUS" : "LIVE PIPELINE"}</span>
+                <span className={`status-dot ${streaming ? "status-dot-pulse" : ""}`} style={{ background: error ? "var(--high)" : "var(--ok)" }} />
+              </div>
+              <AuditProgress steps={steps} backendLogs={backendLogs} />
+            </div>
+          )}
+
+          {!streaming && (
+            <>
+              <div className="list-section">
+                <p className="eyebrow">AUDIT HISTORY</p>
+                <p className="section-caption">
+                  Compare prior runs, inspect stored evidence, and open the exact proof record tied to this package.
+                </p>
+                <AuditHistory audits={audits} onSelectAudit={handleSelectAudit} selectedBlobId={selectedBlobId} />
+              </div>
+
+              {report && (
+                <div className="panel">
+                  <AuditReport report={report} />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </section>
     </>
   );
 }
