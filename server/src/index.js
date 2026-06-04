@@ -44,8 +44,7 @@ function matchesClientKey(value) {
 
 const corsOptions = {
   origin(origin, callback) {
-    if (isAllowedOrigin(origin)) return callback(null, true);
-    return callback(new Error("Origin not allowed by CORS"));
+    return callback(null, isAllowedOrigin(origin));
   },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: CORS_ALLOWED_HEADERS,
