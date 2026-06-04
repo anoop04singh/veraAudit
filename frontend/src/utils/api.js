@@ -1,4 +1,11 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+function normalizeApiBaseUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withProtocol.replace(/\/$/, "");
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const CLIENT_AUTH_HEADER = "x-veraaudit-client-key";
 const clientKey = import.meta.env.VITE_API_CLIENT_KEY ?? "";
 

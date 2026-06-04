@@ -1495,15 +1495,62 @@ select:focus {
   align-items: start;
 }
 
+.list-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.list-kicker {
+  color: var(--muted2);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .list-head .mono {
   color: var(--white);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
 
 .list-contract-id {
   line-height: 1.1;
+}
+
+.list-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.list-meta-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.list-meta-label {
+  color: var(--muted2);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.list-meta-value {
+  color: var(--white);
+  font-size: 0.8rem;
+}
+
+.list-timestamp {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sev {
@@ -1676,6 +1723,72 @@ select:focus {
   background:
     linear-gradient(180deg, rgba(220, 38, 38, 0.05), rgba(220, 38, 38, 0.015)),
     rgba(10, 10, 11, 0.92);
+}
+
+.report-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 30px;
+}
+
+.report-skeleton-header,
+.report-skeleton-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.report-skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.skeleton-block,
+.skeleton-stat,
+.skeleton-finding {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.skeleton-block::after,
+.skeleton-stat::after,
+.skeleton-finding::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: scan 1.8s ease-in-out infinite;
+}
+
+.skeleton-block-eyebrow {
+  width: 120px;
+  height: 12px;
+}
+
+.skeleton-block-title {
+  width: 220px;
+  height: 38px;
+}
+
+.skeleton-block-line {
+  width: 72%;
+  height: 14px;
+}
+
+.skeleton-block-line-wide {
+  width: 88%;
+}
+
+.skeleton-stat {
+  min-height: 96px;
+}
+
+.skeleton-finding {
+  min-height: 150px;
 }
 
 .report-header {
@@ -1978,6 +2091,7 @@ select:focus {
   .taxonomy-grid,
   .verify-summary-grid,
   .findings-overview,
+  .report-skeleton-stats,
   .flow-grid,
   .split-grid.two-cols,
   .rag-source-grid {
@@ -1997,27 +2111,57 @@ select:focus {
 
 @media (max-width: 780px) {
   .topbar {
-    padding: 14px 0;
+    position: relative;
+    padding: 10px 0;
   }
 
   .topbar-left,
   .topbar-right {
     width: 100%;
-    flex-direction: column;
-    align-items: start;
+    flex-direction: row;
+    align-items: center;
   }
 
   .topbar-inner {
     flex-direction: column;
     align-items: start;
+    gap: 10px;
+  }
+
+  .topbar-left {
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .topbar-right {
+    justify-content: flex-start;
+    gap: 0;
+  }
+
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .topbar-meta {
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+  }
+
+  .topbar-note {
+    display: none;
   }
 
   .tabs {
     width: 100%;
+    gap: 8px;
   }
 
   .tab-btn {
     flex: 1;
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.78rem;
   }
 
   .landing-stage,

@@ -94,6 +94,7 @@ export function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [audits, setAudits] = useState([]);
   const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [steps, setSteps] = useState(asInitialSteps());
   const [error, setError] = useState("");
@@ -134,6 +135,7 @@ export function AuditPage() {
   async function runAudit() {
     setStreaming(true);
     setReport(null);
+    setReportLoading(false);
     setSteps(asInitialSteps());
     setError("");
     setBackendLogs([]);
@@ -185,11 +187,8 @@ export function AuditPage() {
             ...current,
           ]);
           if (completedBlobId) setSearchParams({ blob: completedBlobId });
-          setReport({
-            summary: payload.summary,
-            severity: payload.severity,
-            findings: [],
-          });
+          setReport(null);
+          setReportLoading(Boolean(completedBlobId));
           setStreaming(false);
         }
 
@@ -206,11 +205,14 @@ export function AuditPage() {
 
   async function loadBlob(blobId) {
     if (!blobId) return;
+    setReportLoading(true);
     try {
       const blob = await apiJson(`/api/blob/${blobId}`);
       setReport(blob);
     } catch {
       setReport(null);
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -327,7 +329,28 @@ export function AuditPage() {
                 <AuditHistory audits={audits} onSelectAudit={handleSelectAudit} selectedBlobId={selectedBlobId} />
               </div>
 
-              {report && (
+              {reportLoading && (
+                <div className="panel report-skeleton" aria-hidden="true">
+                  <div className="report-skeleton-header">
+                    <div className="skeleton-block skeleton-block-eyebrow" />
+                    <div className="skeleton-block skeleton-block-title" />
+                    <div className="skeleton-block skeleton-block-line skeleton-block-line-wide" />
+                    <div className="skeleton-block skeleton-block-line" />
+                  </div>
+                  <div className="report-skeleton-stats">
+                    <div className="skeleton-stat" />
+                    <div className="skeleton-stat" />
+                    <div className="skeleton-stat" />
+                    <div className="skeleton-stat" />
+                  </div>
+                  <div className="report-skeleton-findings">
+                    <div className="skeleton-finding" />
+                    <div className="skeleton-finding" />
+                  </div>
+                </div>
+              )}
+
+              {report && !reportLoading && (
                 <div className="panel">
                   <AuditReport report={report} />
                 </div>

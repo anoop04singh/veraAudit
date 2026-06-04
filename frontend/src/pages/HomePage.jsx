@@ -5,6 +5,19 @@ import { MetricsBar } from "../components/MetricsBar.jsx";
 import { apiJson } from "../utils/api.js";
 import { shortenHash, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
+function formatAuditTimestamp(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [contractId, setContractId] = useState("");
@@ -134,39 +147,46 @@ export function HomePage() {
                     }}
                   >
                     <div className="list-head">
-                      <p className="mono list-contract-id">
-                        {shortenHash(item.contract_id)}
-                      </p>
+                      <div className="list-head-copy">
+                        <span className="list-kicker">Contract</span>
+                        <p className="mono list-contract-id">
+                          {shortenHash(item.contract_id, 8, 6)}
+                        </p>
+                      </div>
                       <span className={`sev sev-${item.severity}`}>{item.severity}</span>
                     </div>
 
-                    <p className="mono">
-                      blob:{" "}
-                      <a
-                        className="smart-link"
-                        href={toWalrusBlobUrl(blobId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {shortenHash(blobId)}
-                      </a>
-                    </p>
+                    <div className="list-meta">
+                      <div className="list-meta-row">
+                        <span className="list-meta-label mono">Blob</span>
+                        <a
+                          className="smart-link mono list-meta-value"
+                          href={toWalrusBlobUrl(blobId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {shortenHash(blobId, 8, 6)}
+                        </a>
+                      </div>
 
-                    <p className="mono">
-                      tx:{" "}
-                      <a
-                        className="smart-link"
-                        href={toSuiScanTxUrl(item.tx_digest)}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {shortenHash(item.tx_digest)}
-                      </a>
-                    </p>
+                      <div className="list-meta-row">
+                        <span className="list-meta-label mono">Tx</span>
+                        <a
+                          className="smart-link mono list-meta-value"
+                          href={toSuiScanTxUrl(item.tx_digest)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {shortenHash(item.tx_digest, 8, 6)}
+                        </a>
+                      </div>
+                    </div>
 
-                    <p className="mono subtle-text">{item.audited_at}</p>
+                    <p className="mono subtle-text list-timestamp">
+                      {formatAuditTimestamp(item.audited_at)}
+                    </p>
                   </div>
                 );
               })}
