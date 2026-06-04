@@ -5,6 +5,13 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
+function parseCsvEnv(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   nodeEnv: process.env.NODE_ENV ?? "development",
@@ -32,6 +39,13 @@ export const config = {
   suiPrivateKey: process.env.SUI_PRIVATE_KEY ?? "",
 
   appNetworkLabel: process.env.APP_NETWORK_LABEL ?? "sui:mainnet",
+  frontendOrigins:
+    parseCsvEnv(process.env.FRONTEND_ORIGINS).length > 0
+      ? parseCsvEnv(process.env.FRONTEND_ORIGINS)
+      : process.env.NODE_ENV === "development"
+        ? ["http://localhost:5173"]
+        : [],
+  apiClientKey: process.env.API_CLIENT_KEY ?? "",
 
   retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS ?? 8),
   retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS ?? 1500),

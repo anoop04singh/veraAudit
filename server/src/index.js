@@ -1,6 +1,6 @@
 import cors from "cors";
 import express from "express";
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { config } from "./config.js";
 import { queryAuditEvents, suiRpc } from "./tatum.js";
@@ -13,8 +13,62 @@ import { createAuditPipeline } from "./auditPipeline.js";
 import { getErrorStatusCode, isRetryableError } from "./retry.js";
 
 const app = express();
-app.use(cors());
+const CLIENT_AUTH_HEADER = "x-veraaudit-client-key";
+const CORS_ALLOWED_HEADERS = ["Content-Type", CLIENT_AUTH_HEADER];
+
+function isAllowedOrigin(origin) {
+  if (!origin) return config.nodeEnv !== "production";
+  if (config.frontendOrigins.length === 0) return true;
+  return config.frontendOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === origin) return true;
+    if (!allowedOrigin.includes("*")) return false;
+
+    const pattern = new RegExp(
+      `^${allowedOrigin
+        .split("*")
+        .map((segment) => segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*")}$`,
+    );
+    return pattern.test(origin);
+  });
+}
+
+function matchesClientKey(value) {
+  if (!config.apiClientKey) return true;
+  if (!value) return false;
+
+  const expected = Buffer.from(config.apiClientKey);
+  const received = Buffer.from(String(value));
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error("Origin not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: CORS_ALLOWED_HEADERS,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "3mb" }));
+
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health") return next();
+
+  const origin = req.get("origin");
+  if (!isAllowedOrigin(origin)) {
+    return res.status(403).json({ error: "Request origin is not allowed." });
+  }
+
+  if (!matchesClientKey(req.get(CLIENT_AUTH_HEADER))) {
+    return res.status(401).json({ error: "Invalid client credentials." });
+  }
+
+  return next();
+});
 
 const auditInput = z.object({
   contractId: z.string().min(3),
@@ -82,7 +136,7 @@ app.get("/api/health", (_, res) => {
 app.get("/api/test-tatum", async (_, res) => {
   try {
     if (!config.tatumApiKey) {
-      return res.status(400).json({ error: "TATUM_API_KEY is not set in .env" });
+      return res.status(400).json({ error: "TATUM_API_KEY is not set in environment variables." });
     }
 
     const result = await suiRpc("sui_getLatestCheckpointSequenceNumber", []);

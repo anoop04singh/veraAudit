@@ -1,5 +1,23 @@
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const CLIENT_AUTH_HEADER = "x-veraaudit-client-key";
+const clientKey = import.meta.env.VITE_API_CLIENT_KEY ?? "";
+
+function toApiUrl(url) {
+  return `${API_BASE_URL}${url}`;
+}
+
+function withApiHeaders(init = {}, extraHeaders = {}) {
+  const headers = new Headers(init.headers ?? {});
+  Object.entries(extraHeaders).forEach(([key, value]) => headers.set(key, value));
+  if (clientKey) headers.set(CLIENT_AUTH_HEADER, clientKey);
+  return {
+    ...init,
+    headers,
+  };
+}
+
 export async function apiJson(url, init) {
-  const response = await fetch(url, init);
+  const response = await fetch(toApiUrl(url), withApiHeaders(init));
   const json = await response.json();
   if (!response.ok) {
     throw new Error(json.error ?? "Request failed");
@@ -8,19 +26,27 @@ export async function apiJson(url, init) {
 }
 
 export async function streamAudit(contractId, onEvent) {
-  const response = await fetch("/api/audit", {
-    method: "POST",
-    headers: {
+  const request = withApiHeaders(
+    {
+      method: "POST",
+      body: JSON.stringify({ contractId }),
+    },
+    {
       "content-type": "application/json",
     },
-    body: JSON.stringify({ contractId }),
-  });
+  );
+  const streamResponse = await fetch(toApiUrl("/api/audit"), request);
 
-  if (!response.ok || !response.body) {
-    throw new Error("Unable to start audit stream.");
+  if (!streamResponse.ok || !streamResponse.body) {
+    let message = "Unable to start audit stream.";
+    try {
+      const json = await streamResponse.json();
+      message = json.error ?? message;
+    } catch {}
+    throw new Error(message);
   }
 
-  const reader = response.body.getReader();
+  const reader = streamResponse.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 
