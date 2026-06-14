@@ -323,7 +323,7 @@ Each audit blob includes:
 
 Stored audit artifacts are read through the Walrus mainnet aggregator:
 
-- `https://aggregator.walrus-mainnet.walrus.space/v1/blobs/by-quilt-patch-id/:blobId`
+- `https://aggregator.walrus-mainnet.walrus.space/v1/blobs/by-quilt-patch-id/:quiltId`
 
 ### Why Walrus is used here
 
