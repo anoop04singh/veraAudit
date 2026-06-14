@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { LandingPage } from "./pages/LandingPage.jsx";
@@ -8,6 +8,8 @@ import { VerifyPage } from "./pages/VerifyPage.jsx";
 
 export function App() {
   const location = useLocation();
+  const bgRef = useRef(null);
+  const vantaRef = useRef(null);
 
   useEffect(() => {
     let frameId = 0;
@@ -35,8 +37,69 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+          if (existing.dataset.loaded === "true") {
+            resolve();
+            return;
+          }
+          existing.addEventListener("load", resolve, { once: true });
+          existing.addEventListener("error", reject, { once: true });
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+          script.dataset.loaded = "true";
+          resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js")
+      .then(() => loadScript("https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"))
+      .then(() => {
+        if (cancelled || !bgRef.current || !window.VANTA) return;
+
+        vantaRef.current = window.VANTA.FOG({
+          el: bgRef.current,
+          mouseControls: true,
+          touchControls: true,
+          gyroControls: false,
+          minHeight: 200,
+          minWidth: 200,
+          highlightColor: 0xdc2626,
+          midtoneColor: 0x3d0a0a,
+          lowlightColor: 0x0a0a0b,
+          baseColor: 0x030303,
+          blurFactor: 0.62,
+          zoom: 0.68,
+          speed: 1.15,
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (vantaRef.current) {
+        vantaRef.current.destroy();
+        vantaRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div className="app-shell">
+      <div ref={bgRef} className="vanta-fog-layer" />
       <div className="spotlight" />
       <div className="scanline" />
       <div className="grid-overlay" />

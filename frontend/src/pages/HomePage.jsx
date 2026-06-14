@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { MetricsBar } from "../components/MetricsBar.jsx";
 import { apiJson } from "../utils/api.js";
 import { shortenHash, toSuiScanTxUrl, toWalrusBlobUrl } from "../utils/links.js";
 
@@ -109,8 +108,6 @@ export function HomePage() {
             </div>
           </aside>
         </motion.div>
-
-        <MetricsBar metrics={metrics} />
 
         <div className="panel reveal">
           <p className="eyebrow">RECENT AUDITS</p>

@@ -2,126 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiJson } from "../utils/api.js";
 
-function SignalField() {
-  const canvasRef = useRef(null);
-  const frameRef = useRef(0);
-  const timeRef = useRef(0);
-  const pointerRef = useRef({ x: 0, y: 0 });
-  const visibilityRef = useRef(true);
-  const lastFrameRef = useRef(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return undefined;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return undefined;
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const isReducedMotion = mediaQuery.matches;
-
-    function resize() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.2);
-      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function handlePointerMove(event) {
-      pointerRef.current.x = (event.clientX / window.innerWidth) * 2 - 1;
-      pointerRef.current.y = (event.clientY / window.innerHeight) * 2 - 1;
-    }
-
-    resize();
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(canvas.parentElement);
-    const intersectionObserver = new IntersectionObserver(
-      ([entry]) => {
-        visibilityRef.current = entry?.isIntersecting ?? true;
-        if (visibilityRef.current && !frameRef.current) {
-          lastFrameRef.current = 0;
-          frameRef.current = requestAnimationFrame(draw);
-        }
-      },
-      { threshold: 0.02 },
-    );
-    intersectionObserver.observe(canvas);
-
-    if (!isReducedMotion) {
-      window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    }
-
-    function draw(now) {
-      if (!visibilityRef.current) {
-        frameRef.current = 0;
-        return;
-      }
-
-      if (lastFrameRef.current && now - lastFrameRef.current < 40) {
-        frameRef.current = requestAnimationFrame(draw);
-        return;
-      }
-      lastFrameRef.current = now;
-
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      const horizonY = height * 0.4;
-      const baseY = height * 0.88;
-      const t = timeRef.current;
-      const pointer = pointerRef.current;
-
-      ctx.clearRect(0, 0, width, height);
-
-      for (let depth = 0; depth < 28; depth += 1) {
-        const z = depth / 27;
-        const perspective = 1 / (0.16 + z * 2.55);
-        const y = horizonY + (1 - z) * (baseY - horizonY);
-
-        for (let col = -26; col <= 26; col += 1) {
-          const xNorm = col / 26;
-          const wave =
-            Math.sin(xNorm * 7.8 + t * 0.92 + z * 4.6) * 0.044 +
-            Math.cos(z * 15.2 - t * 1.18 + xNorm * 2.8) * 0.038;
-          const drift = pointer.x * 14 * (1 - z);
-          const px = width * 0.5 + xNorm * width * 0.6 * perspective + drift;
-          const py = y + wave * height * 1.02 * perspective + pointer.y * 5 * (1 - z);
-          const radius = Math.max(0.4, 0.4 + perspective * 0.7);
-          const redMix = Math.max(0, 1 - z * 1.1) * (0.5 + Math.max(0, wave) * 4.4);
-          const alpha = 0.11 + perspective * 0.09;
-          const r = Math.round(120 + redMix * 80);
-          const g = Math.round(30 + redMix * 16);
-          const b = Math.round(30 + redMix * 16);
-
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(0.92, alpha)})`;
-          ctx.arc(px, py, radius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      timeRef.current += 0.011;
-      frameRef.current = requestAnimationFrame(draw);
-    }
-
-    if (!isReducedMotion) {
-      frameRef.current = requestAnimationFrame(draw);
-    } else {
-      draw(0);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-      intersectionObserver.disconnect();
-      window.removeEventListener("pointermove", handlePointerMove);
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} aria-hidden="true" className="signal-field-canvas" />;
-}
-
 function Counter({ target }) {
   const [value, setValue] = useState(0);
   const startedRef = useRef(false);
@@ -263,10 +143,6 @@ export function LandingPage() {
   return (
     <>
       <section className="landing-stage">
-        <div className="signal-field-shell">
-          <SignalField />
-        </div>
-
         <div className="landing-stage-inner section">
           <div className="hero-kicker-row">
             <p className="mono">SUI MAINNET</p>
