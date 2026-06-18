@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useSearchParams } from "react-router-dom";
 import { AuditHistory } from "../components/AuditHistory.jsx";
+import { PaymentModal } from "../components/PaymentModal.jsx";
 import { AuditProgress } from "../components/AuditProgress.jsx";
 import { AuditReport } from "../components/AuditReport.jsx";
 import { apiJson, streamAudit } from "../utils/api.js";
@@ -100,6 +101,8 @@ export function AuditPage() {
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
   const [backendLogs, setBackendLogs] = useState([]);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentPrompted, setPaymentPrompted] = useState(false);
 
   const latest = useMemo(() => audits[0], [audits]);
   const selectedBlobId = searchParams.get("blob");
@@ -132,7 +135,8 @@ export function AuditPage() {
     }
   }
 
-  async function runAudit() {
+  async function runAudit(paymentProof) {
+    setPaymentOpen(false);
     setStreaming(true);
     setReport(null);
     setReportLoading(false);
@@ -141,13 +145,22 @@ export function AuditPage() {
     setBackendLogs([]);
 
     try {
-      await streamAudit(contractId, (event, payload) => {
+      let paymentAccepted = false;
+      function markPaymentAccepted(payload = {}) {
+        if (paymentAccepted) return;
+        paymentAccepted = true;
+        window.dispatchEvent(new CustomEvent("veraaudit:payment-complete", { detail: payload }));
+      }
+
+      await streamAudit(contractId, paymentProof, (event, payload) => {
         if (event === "progress") {
+          markPaymentAccepted(paymentProof);
           if (payload.status === "error") patchStep(payload.step, "error", payload.message);
           else patchStep(payload.step, "running", payload.message);
         }
 
         if (event === "step_output") {
+          markPaymentAccepted(paymentProof);
           patchStep(payload.step, "done", payload.message);
           setBackendLogs((current) => [
             ...current,
@@ -171,6 +184,7 @@ export function AuditPage() {
         }
 
         if (event === "complete") {
+          markPaymentAccepted(paymentProof);
           stepOrder.forEach((step) => patchStep(step, "done", "Complete"));
           const completedBlobId = payload.quilt_id ?? payload.blob_id;
           setAudits((current) => [
@@ -228,8 +242,11 @@ export function AuditPage() {
   }, [selectedBlobId, latest?.quilt_id, latest?.walrus_blob_id, latest?.blob_id]);
 
   useEffect(() => {
-    if (!loading && audits.length === 0) runAudit();
-  }, [loading]);
+    if (!loading && audits.length === 0 && !paymentPrompted && !selectedBlobId && !error) {
+      setPaymentPrompted(true);
+      setPaymentOpen(true);
+    }
+  }, [loading, audits.length, paymentPrompted, selectedBlobId, error]);
 
   useEffect(() => {
     if (!streaming) return undefined;
@@ -242,8 +259,20 @@ export function AuditPage() {
     setSearchParams({ blob: blobId });
   }
 
+  function requestAudit() {
+    setError("");
+    setPaymentOpen(true);
+  }
+
   return (
     <>
+      <PaymentModal
+        open={paymentOpen}
+        contractId={contractId}
+        onClose={() => setPaymentOpen(false)}
+        onConfirmed={runAudit}
+      />
+
       <section className="audit-hero section">
         <div className="s-inner audit-hero-inner">
           <div className="audit-hero-left">
@@ -300,7 +329,7 @@ export function AuditPage() {
           )}
 
           <div className="actions-row">
-            <button className="btn btn--primary" onClick={runAudit} disabled={streaming}>
+            <button className="btn btn--primary" onClick={requestAudit} disabled={streaming}>
               {streaming ? "Running Audit..." : "Run Fresh Audit"}
             </button>
             {latest && <span className="subtle-text">Last run: {latest.audited_at ? new Date(latest.audited_at).toLocaleString() : "-"}</span>}

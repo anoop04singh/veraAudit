@@ -32,11 +32,11 @@ export async function apiJson(url, init) {
   return json;
 }
 
-export async function streamAudit(contractId, onEvent) {
+export async function streamAudit(contractId, payment, onEvent) {
   const request = withApiHeaders(
     {
       method: "POST",
-      body: JSON.stringify({ contractId }),
+      body: JSON.stringify({ contractId, payment }),
     },
     {
       "content-type": "application/json",

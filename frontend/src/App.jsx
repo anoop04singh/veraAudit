@@ -10,6 +10,7 @@ export function App() {
   const location = useLocation();
   const bgRef = useRef(null);
   const vantaRef = useRef(null);
+  const completionTimerRef = useRef(0);
 
   useEffect(() => {
     let frameId = 0;
@@ -90,11 +91,44 @@ export function App() {
 
     return () => {
       cancelled = true;
+      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
       if (vantaRef.current) {
         vantaRef.current.destroy();
         vantaRef.current = null;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    function markPaymentComplete() {
+      document.documentElement.classList.add("payment-complete-bg");
+      if (vantaRef.current?.setOptions) {
+        vantaRef.current.setOptions({
+          highlightColor: 0x22c55e,
+          midtoneColor: 0x064e3b,
+          lowlightColor: 0x031f16,
+          baseColor: 0x020806,
+          speed: 1.8,
+        });
+      }
+
+      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
+      completionTimerRef.current = window.setTimeout(() => {
+        document.documentElement.classList.remove("payment-complete-bg");
+        if (vantaRef.current?.setOptions) {
+          vantaRef.current.setOptions({
+            highlightColor: 0xdc2626,
+            midtoneColor: 0x3d0a0a,
+            lowlightColor: 0x0a0a0b,
+            baseColor: 0x030303,
+            speed: 1.15,
+          });
+        }
+      }, 12000);
+    }
+
+    window.addEventListener("veraaudit:payment-complete", markPaymentComplete);
+    return () => window.removeEventListener("veraaudit:payment-complete", markPaymentComplete);
   }, []);
 
   return (

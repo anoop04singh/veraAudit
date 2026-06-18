@@ -46,6 +46,11 @@ export const config = {
         ? ["http://localhost:5173"]
         : [],
   apiClientKey: process.env.API_CLIENT_KEY ?? "",
+  auditPriceUsd: Number(process.env.AUDIT_PRICE_USD ?? 50),
+  auditTestCoupon: process.env.AUDIT_TEST_COUPON ?? "",
+  auditPaymentRecipient: process.env.AUDIT_PAYMENT_RECIPIENT ?? "",
+  auditPaymentNetwork: process.env.AUDIT_PAYMENT_NETWORK ?? "mainnet",
+  suiUsdFallback: Number(process.env.SUI_USD_FALLBACK ?? 3.5),
 
   retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS ?? 8),
   retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS ?? 1500),

@@ -71,7 +71,24 @@ app.use("/api", (req, res, next) => {
 
 const auditInput = z.object({
   contractId: z.string().min(3),
+  payment: z
+    .object({
+      digest: z.string().optional(),
+      payer: z.string().optional(),
+      amountMist: z.number().int().positive().optional(),
+      coupon: z.string().optional(),
+      bypassed: z.boolean().optional(),
+    })
+    .optional(),
 });
+
+const MIST_PER_SUI = 1_000_000_000;
+const SUI_FULLNODE_URLS = {
+  mainnet: "https://fullnode.mainnet.sui.io:443",
+  testnet: "https://fullnode.testnet.sui.io:443",
+  devnet: "https://fullnode.devnet.sui.io:443",
+  localnet: "http://127.0.0.1:9000",
+};
 
 function getAuditEventType() {
   if (!config.registryPackageId) return "";
@@ -94,6 +111,68 @@ function sendSseHeaders(res) {
 function emitSse(res, event, data) {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function normalizeSuiAddress(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return "";
+  return raw.startsWith("0x") ? raw : `0x${raw}`;
+}
+
+async function fetchSuiUsdPrice() {
+  try {
+    const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd");
+    const json = await response.json();
+    const price = Number(json?.sui?.usd);
+    return Number.isFinite(price) && price > 0 ? price : config.suiUsdFallback;
+  } catch {
+    return config.suiUsdFallback;
+  }
+}
+
+async function fetchTransactionBlock(digest) {
+  const url = SUI_FULLNODE_URLS[config.auditPaymentNetwork] ?? SUI_FULLNODE_URLS.mainnet;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "vera-audit-payment",
+      method: "sui_getTransactionBlock",
+      params: [digest, { showEffects: true, showBalanceChanges: true, showInput: true }],
+    }),
+  });
+  const json = await response.json();
+  if (json.error) throw new Error(json.error.message ?? "Unable to verify payment transaction.");
+  if (!json.result?.digest) throw new Error("Payment transaction was not found on Sui.");
+  return json.result;
+}
+
+async function assertAuditPayment(payment) {
+  if (payment?.coupon && config.auditTestCoupon && payment.coupon === config.auditTestCoupon) return;
+
+  const recipient = normalizeSuiAddress(config.auditPaymentRecipient);
+  if (!recipient) throw new Error("Audit payment recipient is not configured.");
+  if (!payment?.digest) throw new Error("Audit payment is required before the audit can start.");
+
+  const tx = await fetchTransactionBlock(payment.digest);
+  const status = tx.effects?.status?.status;
+  if (status !== "success") throw new Error("Payment transaction was not successful.");
+
+  const payer = normalizeSuiAddress(payment.payer);
+  const sender = normalizeSuiAddress(tx.transaction?.data?.sender);
+  if (payer && sender && payer !== sender) throw new Error("Payment sender does not match the connected wallet.");
+
+  const recipientCredit = (tx.balanceChanges ?? [])
+    .filter((change) => normalizeSuiAddress(change.owner?.AddressOwner) === recipient)
+    .filter((change) => change.coinType === "0x2::sui::SUI")
+    .reduce((sum, change) => sum + BigInt(change.amount ?? 0), 0n);
+
+  const suiUsd = await fetchSuiUsdPrice();
+  const requiredMist = BigInt(Math.floor((config.auditPriceUsd / suiUsd) * MIST_PER_SUI * 0.98));
+  if (recipientCredit < requiredMist) {
+    throw new Error("Payment amount is below the required audit price.");
+  }
 }
 
 const runAuditPipeline = createAuditPipeline({
@@ -221,6 +300,8 @@ app.post("/api/audit", async (req, res) => {
   try {
     const parsed = auditInput.parse(req.body);
     normalizedContractId = parsed.contractId.toLowerCase();
+
+    await assertAuditPayment(parsed.payment);
 
     if (inFlightAudits.has(normalizedContractId)) {
       emitSse(res, "error", {
